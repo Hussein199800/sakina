@@ -5,11 +5,12 @@ import { num, esc, normalize } from '../text.js';
 import { CITIES } from '../data/cities.js';
 import { METHODS } from '../prayer.js';
 import { location, deviceTz, rescheduleNotifications } from '../services.js';
-import { pageHead, refresh } from './common.js';
+import { fullHead, refresh } from './common.js';
 import { THEMES, openSheet, confirmSheet, toast } from '../ui.js';
-import { getPosition, notificationsSupported, ensureNotifyPermission, exactAlarmsAllowed, openExactAlarmSettings, saveTextFile, isNative } from '../native.js';
+import { getPosition, saveTextFile } from '../native.js';
 
-const VERSION = '1.0.0';
+export const full = true;
+export const tab = 'more';
 
 const sw = (on, act, extra = '') => `<button class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-act="${act}" ${extra}><i></i></button>`;
 const row = (ic, label, sub, control) => `<div class="set-row"><span class="set-ic">${icon(ic)}</span><div class="set-txt"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${control}</div>`;
@@ -25,20 +26,11 @@ function themes() {
     </button>`).join('')}</div>`;
 }
 
-function notifRow(key, ic, label) {
-  const n = state.settings.notif[key];
-  return `<div class="set-row">
-    <span class="set-ic">${icon(ic)}</span>
-    <div class="set-txt"><b>${label}</b><small>${n.on ? 'مفعّل يومياً' : 'متوقف'}</small></div>
-    <input type="time" class="time-in" value="${n.time}" data-time="${key}" ${n.on ? '' : 'disabled'} aria-label="وقت ${label}">
-    ${sw(n.on, 'set-notif', `data-k="${key}"`)}
-  </div>`;
-}
 
 export function render() {
   const s = state.settings;
   const loc = location();
-  return `${pageHead('الإعدادات', 'خصّص سكينة كما يريحك')}
+  return `${fullHead('الإعدادات', 'خصّص سكينة كما يريحك')}
     <section class="block">
       <div class="block-head"><h2>${icon('palette')} الثيم والألوان</h2></div>
       ${themes()}
@@ -77,14 +69,11 @@ export function render() {
     </section>
 
     <section class="card set-card">
-      <h2 class="set-title">${icon('bell')} التنبيهات</h2>
-      ${notificationsSupported ? '' : `<p class="note">${icon('info')} التنبيهات تعمل في تطبيق أندرويد. في المتصفح يمكنك فتح التطبيق في أي وقت لمتابعة وردك.</p>`}
-      ${notifRow('morning', 'sunrise', 'أذكار الصباح')}
-      ${notifRow('evening', 'sunset', 'أذكار المساء')}
-      ${notifRow('sleep', 'moon', 'أذكار النوم')}
-      ${row('mosque', 'تنبيه أوقات الصلاة', 'عند دخول وقت كل صلاة', sw(s.notif.prayers, 'set-notif-flag', 'data-k="prayers"'))}
-      ${row('calendar', 'تذكير الجمعة', 'سورة الكهف والصلاة على النبي ﷺ', sw(s.notif.friday, 'set-notif-flag', 'data-k="friday"'))}
-      ${isNative ? '<p class="note small" data-exact hidden></p>' : ''}
+      <h2 class="set-title">${icon('bell')} التنبيهات والتحديثات</h2>
+      <button class="set-row link" data-act="go" data-to="#/reminders">
+        <span class="set-ic">${icon('bell')}</span><div class="set-txt"><b>التذكيرات</b><small>الأذكار، الصلاة، الصيام، الجمعة، وتذكيراتك الخاصة</small></div>${icon('chevron')}
+      </button>
+      ${row('refresh', 'التحقق التلقائي من التحديثات', 'مرة يومياً عند الاتصال بالإنترنت', sw(state.app.autoUpdate, 'set-autoupd'))}
     </section>
 
     <section class="card set-card">
@@ -94,19 +83,6 @@ export function render() {
         <button class="btn btn-soft" data-act="data-export">${icon('download')} تصدير نسخة</button>
         <label class="btn btn-soft">${icon('upload')} استيراد نسخة<input type="file" accept="application/json,.json" data-import hidden></label>
         <button class="btn btn-danger-soft" data-act="data-clear">${icon('trash')} مسح البيانات</button>
-      </div>
-    </section>
-
-    <section class="card about">
-      <div class="about-logo">${icon('sparkle')}</div>
-      <h2>سكينة</h2>
-      <p class="muted">رفيقك الروحي اليومي · الإصدار ${num(VERSION)}</p>
-      <p>أذكار وأدعية من صحيح السنة، ومواقيت صلاة دقيقة، ومسبحة، ومتابعة لعادتك اليومية. يعمل بالكامل بدون إنترنت، مجاناً وبلا إعلانات.</p>
-      <div class="dev-card">
-        <small>تطوير وتصميم</small>
-        <b class="dev-name">حسين محمد علي الطويل</b>
-        <p class="dev-dua amiri">اللَّهُمَّ اغْفِرْ لِعَبْدِكَ حسين محمد علي الطويل وَلِوَالِدَيْهِ، وَارْحَمْهُمَا كَمَا رَبَّيَاهُ صَغِيرًا، وَاجْعَلْ هَٰذَا الْعَمَلَ صَدَقَةً جَارِيَةً فِي مِيزَانِ حَسَنَاتِهِمْ، وَاجْمَعْهُمْ فِي الْفِرْدَوْسِ الْأَعْلَى مِنَ الْجَنَّةِ.</p>
-        <p class="muted small">إن نفعك هذا التطبيق، فلا تنسَ مطوّره ووالديه من دعوة صادقة بظهر الغيب؛ فإن الملَك يقول: «ولك بمثل».</p>
       </div>
     </section>`;
 }
@@ -119,13 +95,6 @@ export function mount(root) {
     rescheduleNotifications();
     refresh();
   }));
-  root.querySelectorAll('input[data-time]').forEach((inp) => inp.addEventListener('change', () => {
-    if (!inp.value) return;
-    state.settings.notif[inp.dataset.time].time = inp.value;
-    save();
-    rescheduleNotifications();
-    toast('تم تحديث وقت التذكير', 'bell');
-  }));
   const imp = root.querySelector('[data-import]');
   if (imp) imp.addEventListener('change', async () => {
     const f = imp.files && imp.files[0];
@@ -134,19 +103,11 @@ export function mount(root) {
       const data = JSON.parse(await readFile(f));
       if (!data || typeof data !== 'object' || !data.settings) throw new Error('bad');
       replaceAll(data);
+      rescheduleNotifications();
       toast('تم استيراد بياناتك');
       document.dispatchEvent(new Event('app:theme'));
     } catch (e) { toast('الملف غير صالح', 'info'); }
   });
-  const exact = root.querySelector('[data-exact]');
-  const n = state.settings.notif;
-  if (exact && (n.prayers || n.morning.on || n.evening.on)) {
-    exactAlarmsAllowed().then((ok) => {
-      if (ok) return;
-      exact.hidden = false;
-      exact.innerHTML = `${icon('info')} لتصل التنبيهات في وقتها بالضبط، اسمح للتطبيق بـ«المنبّهات والتذكيرات». <button class="link-btn" data-act="exact-open">فتح الإعدادات</button>`;
-    });
-  }
 }
 
 // FileReader بدل Blob.text() ليعمل على WebView القديم في أندرويد ٨
@@ -157,14 +118,8 @@ const readFile = (f) => new Promise((resolve, reject) => {
   r.readAsText(f);
 });
 
-async function needPermission() {
-  if (!notificationsSupported) { toast('التنبيهات متاحة في تطبيق أندرويد', 'info'); return false; }
-  if (await ensureNotifyPermission()) return true;
-  toast('اسمح للتطبيق بإرسال الإشعارات من إعدادات الهاتف', 'info');
-  return false;
-}
-
-function cityPicker() {
+/** نافذة اختيار الموقع (تُستخدم أيضاً في شاشة الترحيب) */
+export function cityPicker(onDone) {
   openSheet(`<h3 class="sheet-title">اختر موقعك</h3>
     <button class="btn btn-primary wide" data-gps>${icon('location')} استخدام موقعي الحالي</button>
     <label class="search in-sheet">${icon('search')}<input type="search" placeholder="ابحث عن مدينة أو دولة…" data-q></label>
@@ -189,6 +144,7 @@ function cityPicker() {
         rescheduleNotifications();
         close();
         toast(`تم اختيار ${CITIES[+b.dataset.city].name}`, 'pin');
+        if (onDone) onDone();
         refresh();
       });
       body.querySelector('[data-gps]').addEventListener('click', async (e) => {
@@ -206,6 +162,7 @@ function cityPicker() {
           rescheduleNotifications();
           close();
           toast('تم تحديد موقعك بنجاح', 'location');
+          if (onDone) onDone();
           refresh();
         } catch (err) {
           btn.disabled = false;
@@ -223,30 +180,14 @@ export const actions = {
   'set-toggle': (el) => { const k = el.dataset.k; state.settings[k] = !state.settings[k]; save(); refresh(); },
   'set-digits': (el) => { state.settings.digits = el.dataset.k; save(); document.dispatchEvent(new Event('app:theme')); },
   'set-city': () => cityPicker(),
-  'set-notif': async (el) => {
-    const n = state.settings.notif[el.dataset.k];
-    if (!n.on && !(await needPermission())) return;
-    n.on = !n.on;
-    save();
-    await rescheduleNotifications();
-    refresh();
-  },
-  'set-notif-flag': async (el) => {
-    const k = el.dataset.k;
-    if (!state.settings.notif[k] && !(await needPermission())) return;
-    state.settings.notif[k] = !state.settings.notif[k];
-    save();
-    await rescheduleNotifications();
-    refresh();
-  },
-  'exact-open': () => openExactAlarmSettings(),
+  'set-autoupd': () => { state.app.autoUpdate = !state.app.autoUpdate; save(); refresh(); },
   'data-export': async () => {
     flush();
     await saveTextFile(`sakina-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 1));
     toast('تم تجهيز نسخة من بياناتك', 'download');
   },
   'data-clear': async () => {
-    if (!(await confirmSheet('مسح كل البيانات', 'ستُحذف الإعدادات والتقدّم والمفضلة وأذكارك الخاصة وسجلّ الالتزام. لا يمكن التراجع عن ذلك.', 'مسح نهائي', true))) return;
+    if (!(await confirmSheet('مسح كل البيانات', 'ستُحذف الإعدادات والتقدّم والمفضلة وأذكارك الخاصة والختمة والتذكيرات وسجلّ الالتزام. لا يمكن التراجع عن ذلك.', 'مسح نهائي', true))) return;
     clearAll();
     await rescheduleNotifications();
     toast('تم مسح البيانات', 'trash');

@@ -22,9 +22,15 @@ export const DEFAULTS = {
       evening: { on: false, time: '17:00' },
       sleep: { on: false, time: '22:30' },
       prayers: false,
-      friday: false,
     },
   },
+  quran: { lastPage: 0, fontSize: 27, bookmarks: [] },
+  // الختمة: page = الصفحة التالية للقراءة، log = الصفحات المقروءة لكل يوم
+  khatma: null,
+  khatmaDone: 0,
+  // تذكيرات المستخدم المخصّصة
+  reminders: [],
+  app: { lastSeenVersion: '', welcomed: false, autoUpdate: true, lastUpdateCheck: 0, latest: null },
   progress: { date: '', counts: {} },
   favorites: [],
   custom: [],
@@ -41,9 +47,13 @@ function merge(base, saved) {
   return out;
 }
 
+/** هل كانت هناك بيانات محفوظة قبل هذا التشغيل (مستخدم قديم وليس تثبيتاً جديداً) */
+export let hadData = false;
+
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
+    hadData = !!raw;
     return merge(DEFAULTS, raw ? JSON.parse(raw) : {});
   } catch (e) {
     return merge(DEFAULTS, {});
@@ -51,6 +61,12 @@ function load() {
 }
 
 export const state = load();
+
+// ترحيل بيانات الإصدار ١٫٠: تذكير الجمعة صار ضمن التذكيرات المخصّصة
+if (state.settings.notif.friday) {
+  delete state.settings.notif.friday;
+  if (!state.reminders.some((r) => r.kind === 'kahf')) state.reminders.push({ id: 'r-kahf', kind: 'kahf', on: true, time: '10:00', mode: 'day' });
+}
 
 let timer;
 export function save() {

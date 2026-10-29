@@ -6,7 +6,10 @@ import { HIJRI_MONTHS, GREG_MONTHS, WEEKDAYS, WEEKDAY_LETTERS, addDays, dateKey 
 import { OCCASIONS, WHITE_DAYS, FRIDAY, MON_THU } from '../data/occasions.js';
 import { NAMES } from '../data/names.js';
 import { localToday, hijriOf, streak, lastWeek, palms } from '../services.js';
-import { pageHead, refresh } from './common.js';
+import { fullHead, refresh } from './common.js';
+
+export const full = true;
+export const tab = 'more';
 import { tapFeedback } from '../ui.js';
 
 const PRAYER_NAMES = ['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء'];
@@ -78,7 +81,7 @@ export function render() {
   const events = upcoming().slice(0, 12);
   const g = localToday();
   const hj = hijriOf(g);
-  return `${pageHead('رحلتي', `${num(hj.d)} ${HIJRI_MONTHS[hj.m - 1]} ${num(hj.y)} هـ · ${num(g.d)} ${GREG_MONTHS[g.m - 1]}`)}
+  return `${fullHead('رحلتي', `${num(hj.d)} ${HIJRI_MONTHS[hj.m - 1]} ${num(hj.y)} هـ · ${num(g.d)} ${GREG_MONTHS[g.m - 1]}`)}
     <section class="card streak-hero">
       <div class="sh-main">
         <span class="sh-flame">${icon('flame')}</span>

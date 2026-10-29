@@ -41,7 +41,7 @@ export function applyTheme() {
 }
 
 /** نص الذكر حسب إعداد التشكيل */
-export const dhikrText = (t) => (state.settings.tashkeel ? t : stripTashkeel(t));
+export const dhikrText = (t) => (state.settings.tashkeel ? t : t.split(/(﴿[^﴾]*﴾)/).map((part) => (part.charAt(0) === '﴿' ? part : stripTashkeel(part))).join(''));
 
 // ---------- إشعار منبثق ----------
 let toastTimer;
@@ -88,6 +88,8 @@ export function closeSheet() {
   return true;
 }
 export const hasSheet = () => sheets.length > 0;
+/** إغلاق كل الألواح المفتوحة (عند الانتقال إلى صفحة أخرى) */
+export function closeAllSheets() { while (sheets.length) closeSheet(); }
 
 export function confirmSheet(title, body, okLabel = 'تأكيد', danger = false) {
   return new Promise((resolve) => {
