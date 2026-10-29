@@ -125,6 +125,21 @@ const server = http.createServer((req, res) => {
     if (shots) await page.screenshot({ path: path.join(OUT, 'whatsnew-sheet.png') });
     const st = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')));
     if (!st.reminders.some((r) => r.kind === 'kahf')) errors.push('لم يُرحَّل تذكير الجمعة القديم');
+
+    await ctx.close();
+  }
+  // تحديث متاح: الشريط في «المزيد» ونافذة التحديث مع إرشادات النسخة الاحتياطية
+  {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'ar' });
+    await ctx.addInitScript(() => localStorage.setItem('sakina.v1', JSON.stringify({ app: { welcomed: true, lastSeenVersion: '1.1.0', autoUpdate: false, latest: { code: 99, name: '9.9.9', url: '', notes: ['ميزة تجريبية'] } } })));
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(`update: ${e.message}`));
+    await page.goto(`${base}#/more`);
+    await page.waitForTimeout(600);
+    await page.click('[data-act="upd-show"]');
+    await page.waitForTimeout(500);
+    if (!(await page.$('.upd-help [data-act="data-export"]'))) errors.push('نافذة التحديث بلا زر النسخة الاحتياطية');
+    if (shots) await page.screenshot({ path: path.join(OUT, 'update-sheet.png') });
     await ctx.close();
   }
   await browser.close();

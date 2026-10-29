@@ -72,14 +72,29 @@ export function whatsNewHtml(onlyLatest = false) {
     </section>`).join('');
 }
 
+/** إرشادات التحديث: نسخة احتياطية أولاً، وحذف النسخة القديمة إن تعذّر التثبيت فوقها */
+export function updateHelp() {
+  return `<div class="upd-help">
+    <p class="upd-help-title">${icon('info')} قبل التحديث</p>
+    <ol>
+      <li><b>خذ نسخة احتياطية</b> إن كانت لديك أذكار خاصة أو مفضلة أو ختمة أو تذكيرات أو إعدادات تهمّك.
+        <button class="btn btn-soft wide sm-btn" data-act="data-export">${icon('download')} حفظ نسخة احتياطية الآن</button></li>
+      <li>افتح ملف التحديث بعد تنزيله وثبّته؛ في الغالب يُثبَّت فوق النسخة الحالية وتبقى بياناتك كما هي.</li>
+      <li>إن ظهرت رسالة مثل «لم يتم تثبيت التطبيق» أو «تعارض مع حزمة موجودة»، أو حدثت مشكلة بعد التحديث: <b>احذف النسخة القديمة من الهاتف ثم ثبّت الجديدة</b>.</li>
+      <li>بعد التثبيت افتح <b>المزيد ← الإعدادات ← البيانات ← استيراد نسخة</b> واختر ملف النسخة الاحتياطية لاسترجاع كل شيء.</li>
+    </ol>
+  </div>`;
+}
+
 export function showUpdateSheet() {
   const l = state.app.latest;
   if (!l) return;
   openSheet(`<div class="center"><div class="about-logo">${icon('download')}</div>
     <h3 class="sheet-title">تحديث جديد: الإصدار ${esc(l.name)}</h3></div>
     ${l.notes.length ? `<ul class="upd-notes">${l.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
-    <p class="muted small">بعد التنزيل افتح الملف لتثبيت التحديث، وستبقى كل بياناتك محفوظة.</p>
+    ${updateHelp()}
     <div class="row-btns"><button class="btn btn-primary" data-dl>${icon('download')} تنزيل التحديث</button><button class="btn btn-ghost" data-close>لاحقاً</button></div>`, {
+    cls: 'sheet-tall',
     onMount: (body, close) => body.querySelector('[data-dl]').addEventListener('click', () => { close(); openExternal(safeUrl(l.url)); }),
   });
 }
@@ -103,7 +118,7 @@ export const actions = {
 export const whatsnew = {
   full: true,
   tab: 'more',
-  render: () => `${fullHead('ما الجديد', `الإصدار الحالي ${num(VERSION)}`)}<div class="wn-page">${whatsNewHtml()}</div>`,
+  render: () => `${fullHead('ما الجديد', `الإصدار الحالي ${num(VERSION)}`)}<div class="wn-page">${whatsNewHtml()}<section class="wn-block"><div class="wn-head"><b>طريقة التحديث</b></div>${updateHelp()}</section></div>`,
 };
 
 /** يُعرض مرة واحدة بعد كل تحديث */
