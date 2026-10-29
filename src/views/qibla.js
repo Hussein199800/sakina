@@ -7,7 +7,7 @@ import { fullHead } from './common.js';
 import { vibrate } from '../native.js';
 
 export const full = true;
-export const tab = 'settings';
+export const tab = 'more';
 
 let handler = null;
 let aligned = false;

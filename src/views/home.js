@@ -11,6 +11,33 @@ import { location, localToday, hijriOf, nextPrayer, dayPeriod, GREETINGS, sugges
 import { fmtTime, fmtCountdown, ring, bar, pct, daily, refresh } from './common.js';
 import { openSheet, toast, tapFeedback, THEMES, dhikrText } from '../ui.js';
 import { registerText, toolsRow } from './dhikr.js';
+import { todayRange, readToday, progress as khatmaProgress } from '../khatma.js';
+import { suraOf, suraName } from '../quran.js';
+import { PAGES } from '../data/quran-meta.js';
+
+function quranTile() {
+  const k = state.khatma;
+  const last = state.quran.lastPage;
+  if (k) {
+    const r = todayRange(k);
+    const target = Math.min(k.perDay, r.to - r.from + 1);
+    const done = readToday(k);
+    return `<button class="tile tile-quran span2" data-act="go" data-to="#/mushaf/${Math.min(604, k.page)}">
+      <span class="tq-ic">${icon('quran')}</span>
+      <span class="tq-txt"><span class="eyebrow">${icon('flag')} وردك من القرآن</span>
+        <b>${done >= target ? 'أتممت ورد اليوم ✓' : `الصفحات ${num(r.from)}–${num(r.to)}`}</b>
+        ${bar(khatmaProgress(k))}<small>${num(Math.round(khatmaProgress(k) * 100))}٪ من الختمة</small></span>
+      ${icon('chevron')}
+    </button>`;
+  }
+  return `<button class="tile tile-quran span2" data-act="go" data-to="${last ? `#/mushaf/${last}` : '#/quran'}">
+    <span class="tq-ic">${icon('quran')}</span>
+    <span class="tq-txt"><span class="eyebrow">${icon('book')} القرآن الكريم</span>
+      <b>${last ? `تابع: سورة ${suraName(suraOf(PAGES[last - 1]))}` : 'افتح المصحف'}</b>
+      <small>${last ? `الصفحة ${num(last)}` : 'ابدأ ختمة بخمس صفحات يومياً'}</small></span>
+    ${icon('chevron')}
+  </button>`;
+}
 
 let timer;
 
@@ -83,6 +110,8 @@ function bento() {
       </div>
       <div class="tw-ring">${ring(prog, 92, 7)}<b>${pct(prog)}</b></div>
     </button>
+
+    ${quranTile()}
 
     <article class="tile tile-ayah span2">
       <span class="eyebrow">${icon('book')} آية اليوم</span>

@@ -5,6 +5,9 @@ import { CATEGORY_BY_ID } from './data/adhkar.js';
 import { computeTimes, PRAYERS } from './prayer.js';
 import { ymdInTz, toHijri, addDays, dateKey } from './dates.js';
 import { scheduleAll, notificationsSupported } from './native.js';
+import { occurrences } from './reminders.js';
+import { num } from './text.js';
+import { todayRange } from './khatma.js';
 
 export const deviceTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } };
 
@@ -143,19 +146,28 @@ export async function rescheduleNotifications() {
   if (!notificationsSupported) return;
   const n = state.settings.notif;
   const list = [];
-  if (n.morning.on) list.push({ id: 1, title: 'أذكار الصباح ☀', body: 'أصبحنا وأصبح الملك لله، حان وقت وردك الصباحي', daily: parseTime(n.morning.time) });
-  if (n.evening.on) list.push({ id: 2, title: 'أذكار المساء', body: 'أمسينا وأمسى الملك لله، لا تنسَ أذكار المساء', daily: parseTime(n.evening.time) });
-  if (n.sleep.on) list.push({ id: 3, title: 'أذكار النوم', body: 'باسمك ربي وضعت جنبي، اختم يومك بذكر الله', daily: parseTime(n.sleep.time) });
-  if (n.friday) list.push({ id: 4, title: 'جمعة مباركة', body: 'اقرأ سورة الكهف وأكثر من الصلاة على النبي ﷺ', weekly: { weekday: 6, hour: 10, minute: 0 } });
+  if (n.morning.on) list.push({ id: 1, title: 'أذكار الصباح', body: 'أصبحنا وأصبح الملك لله، حان وقت وردك الصباحي', daily: parseTime(n.morning.time), route: '#/read/morning' });
+  if (n.evening.on) list.push({ id: 2, title: 'أذكار المساء', body: 'أمسينا وأمسى الملك لله، لا تنسَ أذكار المساء', daily: parseTime(n.evening.time), route: '#/read/evening' });
+  if (n.sleep.on) list.push({ id: 3, title: 'أذكار النوم', body: 'باسمك ربي وضعت جنبي، اختم يومك بذكر الله', daily: parseTime(n.sleep.time), route: '#/read/sleep' });
+  const k = state.khatma;
+  if (k && k.remind) {
+    const r = todayRange(k);
+    list.push({ id: 5, title: 'وردك من القرآن', body: `${num(k.perDay)} صفحات اليوم، ابدأ من الصفحة ${num(r.from)}. «اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعاً لأصحابه»`, daily: parseTime(k.time), route: '#/quran' });
+  }
+  // التذكيرات المخصّصة: مواعيد محددة لثلاثة أسابيع، وتُجدَّد عند كل فتح للتطبيق
+  let rid = 1000;
+  for (const r of state.reminders) {
+    for (const o of occurrences(r, new Date(), 21, state.settings.hijriAdjust).slice(0, 25)) list.push({ id: rid++, title: o.title, body: o.body, at: o.at, route: '#/reminders' });
+  }
   if (n.prayers) {
     const now = new Date();
     let g = localToday(now);
     for (let day = 0; day < 6; day++) {
       const t = timesFor(g);
-      FIVE.forEach((k, i) => {
-        if (t[k] > now) {
-          const name = PRAYERS.find((p) => p.key === k).name;
-          list.push({ id: 100 + day * 10 + i, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[k] });
+      FIVE.forEach((key, i) => {
+        if (t[key] > now) {
+          const name = PRAYERS.find((p) => p.key === key).name;
+          list.push({ id: 100 + day * 10 + i, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home' });
         }
       });
       g = addDays(g, 1);

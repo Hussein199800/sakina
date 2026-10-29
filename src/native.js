@@ -7,6 +7,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Geolocation } from '@capacitor/geolocation';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 
 export const isNative = Capacitor.isNativePlatform();
 export { App };
@@ -112,6 +113,21 @@ export async function ensureNotifyPermission() {
   return p.display === 'granted';
 }
 
+/** عند الضغط على الإشعار: الانتقال إلى الصفحة المناسبة */
+export function onNotificationTap(cb) {
+  if (!isNative) return;
+  LocalNotifications.addListener('localNotificationActionPerformed', (e) => {
+    const route = e && e.notification && e.notification.extra && e.notification.extra.route;
+    if (route) cb(route);
+  });
+}
+
+/** فتح رابط خارجي في المتصفح */
+export async function openExternal(url) {
+  if (isNative) { await Browser.open({ url }); return; }
+  window.open(url, '_blank', 'noopener');
+}
+
 export async function exactAlarmsAllowed() {
   if (!isNative) return true;
   try { return (await LocalNotifications.checkExactNotificationSetting()).exact_alarm === 'granted'; } catch (e) { return true; }
@@ -138,6 +154,7 @@ export async function scheduleAll(list) {
       body: n.body,
       channelId: 'sakina',
       smallIcon: 'ic_stat_sakina',
+      extra: n.route ? { route: n.route } : undefined,
       schedule: n.at
         ? { at: n.at, allowWhileIdle: true }
         : { on: n.weekly || n.daily, allowWhileIdle: true },

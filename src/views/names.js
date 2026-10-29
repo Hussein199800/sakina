@@ -7,7 +7,7 @@ import { openSheet, dhikrText } from '../ui.js';
 import { registerText, toolsRow } from './dhikr.js';
 
 export const full = true;
-export const tab = 'journal';
+export const tab = 'more';
 
 const TONES = ['teal', 'amber', 'violet', 'indigo', 'rose', 'sand'];
 
@@ -22,7 +22,7 @@ const grid = (q) => {
 export function render() {
   return `${fullHead('أسماء الله الحسنى', '﴿وَلِلَّهِ الْأَسْمَاءُ الْحُسْنَىٰ فَادْعُوهُ بِهَا﴾')}
     <div class="names-page">
-      <p class="names-intro">قال ﷺ: «إن لله تسعة وتسعين اسماً، مائةً إلا واحداً، من أحصاها دخل الجنة» رواه البخاري ومسلم. وإحصاؤها: حفظها، وفهم معانيها، والعمل بمقتضاها، ودعاء الله بها.</p>
+      <p class="names-intro">قال ﷺ: «إن لله تسعة وتسعين اسماً، مائةً إلا واحداً، من أحصاها دخل الجنة» رواه البخاري ومسلم. وإحصاؤها: حفظها، وفهم معانيها، والعمل بمقتضاها، ودعاء الله بها. والأسماء هنا على المشهور من رواية الترمذي، وقد اختلف العلماء في ثبوت سردها، فهي اجتهاد في جمعها لا حصر لأسمائه سبحانه.</p>
       <label class="search">${icon('search')}<input type="search" placeholder="ابحث عن اسم أو معنى…" data-nq autocomplete="off"></label>
       <div class="names-grid" data-grid>${grid('')}</div>
     </div>`;
