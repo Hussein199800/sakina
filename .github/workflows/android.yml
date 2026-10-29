@@ -36,6 +36,10 @@ jobs:
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/sakina.jks"
             echo "path=$RUNNER_TEMP/sakina.jks" >> "$GITHUB_OUTPUT"
           fi
+      # الإصدار المنشور يجب أن يكون موقّعاً بالمفتاح الثابت، وإلا لن تُثبَّت التحديثات القادمة فوقه
+      - name: Require signing key for releases
+        if: startsWith(github.ref, 'refs/tags/v') && steps.sign.outputs.path == ''
+        run: echo "::error::لا يمكن نشر إصدار بدون مفتاح التوقيع. أضف السرّين SAKINA_KEYSTORE_BASE64 و SAKINA_KEYSTORE_PASSWORD" && exit 1
       - name: Build signed release APK
         if: steps.sign.outputs.path != ''
         working-directory: android
