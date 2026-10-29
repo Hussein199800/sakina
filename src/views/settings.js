@@ -78,7 +78,7 @@ export function render() {
 
     <section class="card set-card">
       <h2 class="set-title">${icon('download')} البيانات</h2>
-      <p class="muted small">كل بياناتك محفوظة على جهازك فقط، ولا يُرسَل شيء إلى أي خادم.</p>
+      <p class="muted small">كل بياناتك محفوظة على جهازك فقط، ولا يُرسَل شيء إلى أي خادم. احفظ نسخة احتياطية قبل أي تحديث، فإن اضطررت لحذف التطبيق وإعادة تثبيته استرجعت منها كل شيء.</p>
       <div class="data-btns">
         <button class="btn btn-soft" data-act="data-export">${icon('download')} تصدير نسخة</button>
         <label class="btn btn-soft">${icon('upload')} استيراد نسخة<input type="file" accept="application/json,.json" data-import hidden></label>
