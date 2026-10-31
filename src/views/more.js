@@ -1,14 +1,14 @@
 // تبويب «المزيد»: رحلتي، التذكيرات، أسماء الله، القبلة، الإعدادات، ما الجديد، التحديثات، حول التطبيق
 import { state, save } from '../store.js';
 import { icon } from '../icons.js';
-import { num, esc } from '../text.js';
+import { num, esc, daysLabel } from '../text.js';
 import { VERSION, RELEASES_URL } from '../version.js';
 import { CHANGELOG } from '../data/changelog.js';
 import { checkForUpdate, updateAvailable } from '../updates.js';
-import { streak } from '../services.js';
-import { pageHead, fullHead, refresh } from './common.js';
+import { streak, location } from '../services.js';
+import { pageHead, fullHead, refresh, fmtDate } from './common.js';
 import { openSheet, toast } from '../ui.js';
-import { shareText, openExternal } from '../native.js';
+import { shareText, openExternal, getPosition } from '../native.js';
 
 const SHARE_TEXT = 'سكينة: رفيقك الروحي اليومي 🌙\nأذكار الصباح والمساء كاملة بالتشكيل والمصدر، والقرآن الكريم، ومواقيت الصلاة، والمسبحة، وبوصلة القبلة. يعمل بدون إنترنت، مجاني وبلا إعلانات.';
 
@@ -44,15 +44,17 @@ export function render() {
   return `${pageHead('المزيد', 'أدوات ورحلتك مع سكينة')}
     ${updateBanner()}
     <div class="more-grid">
-      ${tile('#/journal', 'journal', 'teal', 'رحلتي', s ? `${num(s)} أيام التزام` : 'عاداتك والأيام المهمة')}
+      ${tile('#/journal', 'journal', 'teal', 'رحلتي', s ? `التزام: ${daysLabel(s)}` : 'عاداتك والأيام المهمة')}
       ${tile('#/reminders', 'bell', 'amber', 'التذكيرات', `${num(state.reminders.filter((r) => r.on).length)} تذكير مفعّل`)}
-      ${tile('#/names', 'star', 'violet', 'أسماء الله الحسنى', '٩٩ اسماً ومعانيها')}
+      ${tile('#/names', 'star', 'violet', 'أسماء الله الحسنى', `${num(99)} اسماً ومعانيها`)}
       ${tile('#/qibla', 'compass', 'indigo', 'بوصلة القبلة', 'اتجاه الكعبة المشرّفة')}
+      ${tile('#/zakat', 'calculator', 'amber', 'حاسبة الزكاة', 'المال والذهب والفضة')}
+      <button class="more-tile tone-teal" data-act="mosques"><span class="cat-ic">${icon('mosque')}</span><b>المساجد القريبة</b><small>على الخريطة (يحتاج إنترنت)</small></button>
     </div>
     <section class="card set-card">
       ${row('data-act="go" data-to="#/settings"', 'settings', 'الإعدادات', 'الثيم، القراءة، المواقيت، التنبيهات، البيانات')}
       ${row('data-act="go" data-to="#/whatsnew"', 'sparkle', 'ما الجديد', `الإصدار الحالي ${num(VERSION)}`)}
-      ${row('data-act="upd-check"', 'refresh', 'التحقق من التحديثات', state.app.lastUpdateCheck ? `آخر تحقق: ${new Date(state.app.lastUpdateCheck).toLocaleDateString('ar-EG')}` : 'لم يتم التحقق بعد', '<span class="upd-state" data-upd-state></span>')}
+      ${row('data-act="upd-check"', 'refresh', 'التحقق من التحديثات', state.app.lastUpdateCheck ? `آخر تحقق: ${fmtDate(new Date(state.app.lastUpdateCheck))}` : 'لم يتم التحقق بعد', '<span class="upd-state" data-upd-state></span>')}
       ${row('data-act="app-share"', 'share', 'شارك التطبيق', 'الدال على الخير كفاعله')}
     </section>
     <section class="card about">
@@ -67,8 +69,8 @@ export function render() {
 export function whatsNewHtml(onlyLatest = false) {
   return (onlyLatest ? CHANGELOG.slice(0, 1) : CHANGELOG).map((c) => `
     <section class="wn-block">
-      <div class="wn-head"><b>الإصدار ${num(c.version)}</b><small>${c.date}</small></div>
-      ${c.items.map(([ic, t, d]) => `<div class="wn-item"><span class="set-ic">${icon(ic)}</span><div><b>${t}</b><p>${d}</p></div></div>`).join('')}
+      <div class="wn-head"><b>الإصدار ${num(c.version)}</b><small>${num(c.date)}</small></div>
+      ${c.items.map(([ic, t, d]) => `<div class="wn-item"><span class="set-ic">${icon(ic)}</span><div><b>${t}</b><p>${num(d)}</p></div></div>`).join('')}
     </section>`).join('');
 }
 
@@ -107,6 +109,13 @@ export const actions = {
     const r = await checkForUpdate(true);
     if (st) st.textContent = '';
     if (r === 'update') { refresh(); showUpdateSheet(); } else if (r === 'latest') { toast(`أنت على أحدث إصدار (${num(VERSION)})`); refresh(); } else toast('تعذّر التحقق، تأكد من اتصالك بالإنترنت', 'info');
+  },
+  // المساجد القريبة: نفتح الخريطة على موقع المستخدم بحثاً عن «مسجد» (لا يحتاج التطبيق إلى مفتاح خرائط)
+  mosques: async () => {
+    toast('جارٍ تحديد موقعك…', 'location');
+    let p;
+    try { p = await getPosition(); } catch (e) { const l = location(); p = { lat: l.lat, lng: l.lng }; toast(`تعذّر تحديد موقعك، سنبحث قرب ${l.name}`, 'info'); }
+    openExternal(`https://www.google.com/maps/search/${encodeURIComponent('مسجد')}/@${p.lat.toFixed(5)},${p.lng.toFixed(5)},15z`);
   },
   'app-share': async () => {
     const r = await shareText(SHARE_TEXT);

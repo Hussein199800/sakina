@@ -1,7 +1,7 @@
 // التبويب الرابع: رحلتي والأيام المهمة
 import { state, save, today } from '../store.js';
 import { icon } from '../icons.js';
-import { num } from '../text.js';
+import { num, plural } from '../text.js';
 import { HIJRI_MONTHS, GREG_MONTHS, WEEKDAYS, WEEKDAY_LETTERS, addDays, dateKey } from '../dates.js';
 import { OCCASIONS, WHITE_DAYS, FRIDAY, MON_THU } from '../data/occasions.js';
 import { NAMES } from '../data/names.js';
@@ -44,7 +44,7 @@ function upcoming() {
   return list.sort((a, b) => a.days - b.days);
 }
 
-const daysLabel = (d) => (d === 0 ? 'اليوم' : d === 1 ? 'غداً' : d === 2 ? 'بعد يومين' : d <= 10 ? `بعد ${num(d)} أيام` : `بعد ${num(d)} يوماً`);
+const daysLabel = (d) => (d === 0 ? 'اليوم' : d === 1 ? 'غداً' : d === 2 ? 'بعد يومين' : `بعد ${plural(d, ['', '', 'أيام', 'يوماً'])}`);
 
 function oasis(n) {
   const shown = Math.min(n, 12);
@@ -95,7 +95,7 @@ export function render() {
     </section>
 
     <section class="card week-card">
-      <div class="block-head"><h2>أسبوعي</h2><span class="muted">آخر ٧ أيام</span></div>
+      <div class="block-head"><h2>أسبوعي</h2><span class="muted">آخر ${num(7)} أيام</span></div>
       <div class="wk-grid">
         <span></span>${week.map((d) => `<span class="wk-day ${d.isToday ? 'today' : ''}"><small>${WEEKDAY_LETTERS[d.date.getDay()]}</small>${num(d.date.getDate())}</span>`).join('')}
         ${rows.map((r) => `<span class="wk-label">${icon(r.ic)}${r.label}</span>${week.map((d) => `<span class="wk-cell ${d.rec[r.k] ? 'on' : ''}">${icon(d.rec[r.k] ? 'star' : 'check')}</span>`).join('')}`).join('')}
@@ -126,7 +126,7 @@ export function render() {
               <div><b>${e.title}</b><small>${num(e.h.d)} ${HIJRI_MONTHS[e.h.m - 1]} · ${WEEKDAYS[e.g.wd]} ${num(e.g.d)} ${GREG_MONTHS[e.g.m - 1]}</small></div>
               <span class="tl-badge ${e.days <= 1 ? 'soon' : ''}">${daysLabel(e.days)}</span>
             </summary>
-            <p>${e.acts}</p>
+            <p>${num(e.acts)}</p>
           </details>
         </li>`).join('')}
       </ol>
@@ -135,7 +135,7 @@ export function render() {
 
     <button class="card names-link" data-act="go" data-to="#/names">
       <div class="nl-names">${NAMES.slice(1, 7).map((n) => `<span>${n[0]}</span>`).join('')}</div>
-      <div class="nl-txt"><b>أسماء الله الحسنى</b><small>٩٩ اسماً مع المعنى وكيف تدعو بها</small></div>
+      <div class="nl-txt"><b>أسماء الله الحسنى</b><small>${num(99)} اسماً مع المعنى وكيف تدعو بها</small></div>
       ${icon('chevron')}
     </button>`;
 }

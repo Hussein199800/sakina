@@ -3,8 +3,10 @@ import { state, save } from '../store.js';
 import { icon } from '../icons.js';
 import { num, esc } from '../text.js';
 import { KINDS, describe, occurrences } from '../reminders.js';
+import { AVAILABLE_VOICES, voiceById } from '../data/adhan-voices.js';
 import { WEEKDAYS, WEEKDAY_LETTERS, dateKey } from '../dates.js';
-import { fullHead, refresh, fmtTime } from './common.js';
+import { fullHead, refresh } from './common.js';
+import { timeButton, dateButton, pickTime, pickDate, fmtClock, fmtDay } from './pickers.js';
 import { openSheet, toast, confirmSheet } from '../ui.js';
 import { rescheduleNotifications } from '../services.js';
 import { notificationsSupported, ensureNotifyPermission, exactAlarmsAllowed, openExactAlarmSettings, isNative } from '../native.js';
@@ -19,7 +21,7 @@ function baseRow(key, ic, label) {
   return `<div class="set-row">
     <span class="set-ic">${icon(ic)}</span>
     <div class="set-txt"><b>${label}</b><small>${n.on ? 'يومياً' : 'متوقف'}</small></div>
-    <input type="time" class="time-in" value="${n.time}" data-time="${key}" ${n.on ? '' : 'disabled'} aria-label="وقت ${label}">
+    ${timeButton(n.time, `data-act="rem-base-time" data-k="${key}" aria-label="وقت ${label}" ${n.on ? '' : 'disabled'}`)}
     ${sw(n.on, 'rem-base', `data-k="${key}"`)}
   </div>`;
 }
@@ -30,7 +32,7 @@ function nextLabel(r) {
   const d = o.at;
   const days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(new Date().setHours(0, 0, 0, 0))) / 86400000);
   const when = days === 0 ? 'اليوم' : days === 1 ? 'غداً' : `${WEEKDAYS[d.getDay()]} ${num(d.getDate())}/${num(d.getMonth() + 1)}`;
-  return `القادم: ${when} ${fmtTime(d, Intl.DateTimeFormat().resolvedOptions().timeZone)}`;
+  return `القادم: ${when} ${fmtClock(`${d.getHours()}:${d.getMinutes()}`)}`;
 }
 
 export function render() {
@@ -44,6 +46,9 @@ export function render() {
       ${baseRow('evening', 'sunset', 'أذكار المساء')}
       ${baseRow('sleep', 'moon', 'أذكار النوم')}
       <div class="set-row"><span class="set-ic">${icon('mosque')}</span><div class="set-txt"><b>دخول وقت الصلاة</b><small>إشعار عند كل أذان</small></div>${sw(state.settings.notif.prayers, 'rem-prayers')}</div>
+      <button class="set-row link" data-act="adhan-pick" ${state.settings.notif.prayers ? '' : 'disabled'}>
+        <span class="set-ic">${icon('volume')}</span><div class="set-txt"><b>صوت الأذان</b><small>${voiceById(state.settings.adhanVoice) ? voiceById(state.settings.adhanVoice).name : 'نغمة الإشعار الافتراضية'}</small></div>${icon('chevron')}
+      </button>
     </section>
 
     <section class="block">
@@ -53,7 +58,7 @@ export function render() {
         return `<div class="rem-card tone-${k.tone} ${r.on ? '' : 'off'}">
           <button class="rem-main" data-act="rem-edit" data-id="${r.id}">
             <span class="cat-ic">${icon(k.icon)}</span>
-            <span class="cat-txt"><b>${esc(r.kind === 'custom' ? r.title || 'تذكير' : k.title)}</b><small>${describe(r)} · ${fmtTime(new Date(`2000-01-01T${r.time}:00`), Intl.DateTimeFormat().resolvedOptions().timeZone)}</small><small class="rem-next">${nextLabel(r)}</small></span>
+            <span class="cat-txt"><b>${esc(r.kind === 'custom' ? r.title || 'تذكير' : k.title)}</b><small>${describe(r)} · ${fmtClock(r.time)}</small><small class="rem-next">${nextLabel(r)}</small></span>
           </button>
           ${sw(r.on, 'rem-toggle', `data-id="${r.id}"`)}
         </div>`;
@@ -69,14 +74,9 @@ export function render() {
     </section>`;
 }
 
+export function unmount() { stopPreview(); }
+
 export function mount(root) {
-  root.querySelectorAll('input[data-time]').forEach((inp) => inp.addEventListener('change', () => {
-    if (!inp.value) return;
-    state.settings.notif[inp.dataset.time].time = inp.value;
-    save();
-    rescheduleNotifications();
-    toast('تم تحديث وقت التذكير', 'bell');
-  }));
   const exact = root.querySelector('[data-exact]');
   if (exact) exactAlarmsAllowed().then((ok) => {
     if (ok) return;
@@ -105,8 +105,8 @@ function editor(existing, kind) {
       <label class="field"><span>نص إضافي (اختياري)</span><input type="text" id="r-body" value="${esc(r.body)}" maxlength="140"></label>
       <div class="field"><span>التكرار</span><div class="seg">${[['daily', 'يومياً'], ['weekly', 'أيام محددة'], ['once', 'مرة واحدة']].map(([v, l]) => `<button class="seg-btn ${r.repeat === v ? 'on' : ''}" data-rep="${v}">${l}</button>`).join('')}</div></div>
       <div class="field" data-days-wrap ${r.repeat === 'weekly' ? '' : 'hidden'}><span>الأيام</span><div class="days-pick">${WEEKDAYS.map((d, i) => `<button class="day-btn ${r.days.indexOf(i) !== -1 ? 'on' : ''}" data-day="${i}" aria-label="${d}">${WEEKDAY_LETTERS[i]}</button>`).join('')}</div></div>
-      <label class="field" data-date-wrap ${r.repeat === 'once' ? '' : 'hidden'}><span>التاريخ</span><input type="date" id="r-date" class="time-in wide-in" value="${r.date}"></label>` : modeSeg}
-    <label class="field"><span>الوقت</span><input type="time" id="r-time" class="time-in wide-in" value="${r.time}"></label>
+      <div class="field" data-date-wrap ${r.repeat === 'once' ? '' : 'hidden'}><span>التاريخ</span>${dateButton(r.date, 'id="r-date"')}</div>` : modeSeg}
+    <div class="field"><span>الوقت</span>${timeButton(r.time, 'id="r-time"')}</div>
     <div class="row-btns"><button class="btn btn-primary" data-save>${icon('check')} حفظ</button>
       ${existing ? `<button class="btn btn-danger-soft" data-del>${icon('trash')} حذف</button>` : '<button class="btn btn-ghost" data-close>إلغاء</button>'}</div>`, {
     cls: 'sheet-tall',
@@ -127,12 +127,20 @@ function editor(existing, kind) {
         if (i === -1) r.days.push(d); else r.days.splice(i, 1);
         b.classList.toggle('on', i === -1);
       }));
+      const tb = body.querySelector('#r-time');
+      tb.addEventListener('click', async () => {
+        const v = await pickTime(r.time);
+        if (v) { r.time = v; tb.dataset.value = v; tb.querySelector('span').textContent = fmtClock(v); }
+      });
+      const db = body.querySelector('#r-date');
+      if (db) db.addEventListener('click', async () => {
+        const v = await pickDate(r.date);
+        if (v) { r.date = v; db.dataset.value = v; db.querySelector('span').textContent = fmtDay(v); }
+      });
       body.querySelector('[data-save]').addEventListener('click', async () => {
-        r.time = body.querySelector('#r-time').value || r.time;
         if (custom) {
           r.title = body.querySelector('#r-title').value.trim();
           r.body = body.querySelector('#r-body').value.trim();
-          r.date = body.querySelector('#r-date').value || r.date;
           if (!r.title) { toast('اكتب عنوان التذكير', 'info'); return; }
           if (r.repeat === 'weekly' && !r.days.length) { toast('اختر يوماً واحداً على الأقل', 'info'); return; }
         }
@@ -155,6 +163,45 @@ function editor(existing, kind) {
         await rescheduleNotifications();
         refresh();
       });
+    },
+  });
+}
+
+let preview = null;
+let previewId = '';
+const stopPreview = () => { if (preview) { preview.pause(); preview = null; } previewId = ''; };
+
+function adhanSheet() {
+  const cur = state.settings.adhanVoice;
+  const opt = (id, name, sub) => `<div class="voice ${(cur || '') === id ? 'on' : ''}">
+      <button class="voice-main" data-voice="${id}"><span class="voice-radio"></span><span class="cat-txt"><b>${name}</b><small>${sub}</small></span></button>
+      ${id ? `<button class="icon-btn sm" data-play="${id}" aria-label="استماع">${icon('volume')}</button>` : ''}
+    </div>`;
+  openSheet(`<h3 class="sheet-title">${icon('volume')} صوت الأذان</h3>
+    <div class="voices">
+      ${opt('', 'نغمة الإشعار الافتراضية', 'صوت إشعارات الهاتف')}
+      ${AVAILABLE_VOICES.map((v) => opt(v.id, v.name, 'أذان كامل')).join('')}
+    </div>
+    ${AVAILABLE_VOICES.length ? '<p class="muted small">يُشغَّل الأذان مع إشعار دخول الوقت، ولا يُسمع إذا كان الهاتف صامتاً.</p>' : `<p class="note">${icon('info')} لم تُضف أصوات أذان إلى هذه النسخة بعد. ستظهر هنا عند إضافتها في تحديث قادم.</p>`}`, {
+    onClose: stopPreview,
+    onMount: (body, close) => {
+      body.querySelectorAll('[data-voice]').forEach((b) => b.addEventListener('click', async () => {
+        stopPreview();
+        state.settings.adhanVoice = b.dataset.voice;
+        save();
+        await rescheduleNotifications();
+        close();
+        toast('تم اختيار صوت الأذان', 'volume');
+        refresh();
+      }));
+      body.querySelectorAll('[data-play]').forEach((b) => b.addEventListener('click', () => {
+        const same = previewId === b.dataset.play;
+        stopPreview();
+        if (same) return;
+        previewId = b.dataset.play;
+        preview = new Audio(`build/adhan/${previewId}.mp3`);
+        preview.play().catch(() => toast('تعذّر تشغيل الصوت', 'info'));
+      }));
     },
   });
 }
@@ -197,4 +244,15 @@ export const actions = {
     refresh();
   },
   'exact-open': () => openExactAlarmSettings(),
+  'adhan-pick': () => adhanSheet(),
+  'rem-base-time': async (el) => {
+    const n = state.settings.notif[el.dataset.k];
+    const v = await pickTime(n.time);
+    if (!v) return;
+    n.time = v;
+    save();
+    await rescheduleNotifications();
+    toast('تم تحديث وقت التذكير', 'bell');
+    refresh();
+  },
 };

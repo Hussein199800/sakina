@@ -1,6 +1,9 @@
 // التذكيرات المخصّصة: أنواع جاهزة (الصيام، الجمعة، القيام...) وتذكير حرّ يكتبه المستخدم.
 // تُحوَّل كل تذكير إلى مواعيد محددة خلال الأيام القادمة، لأن بعضها مرتبط بالتقويم الهجري ولا يتكرر بانتظام.
-import { toHijri, HIJRI_MONTHS } from './dates.js';
+import { toHijri, HIJRI_MONTHS, GREG_MONTHS } from './dates.js';
+import { num } from './text.js';
+
+const fmtDay = (iso) => { const [y, m, d] = String(iso || '').split('-').map(Number); return y && m && d ? `${num(d)} ${GREG_MONTHS[m - 1]} ${num(y)}` : ''; };
 
 export const KINDS = {
   monthu: {
@@ -57,7 +60,7 @@ const atTime = (date, time) => {
 export function describe(r) {
   const k = KINDS[r.kind] || KINDS.custom;
   if (r.kind === 'custom') {
-    if (r.repeat === 'once') return `مرة واحدة · ${r.date || ''}`;
+    if (r.repeat === 'once') return `مرة واحدة · ${fmtDay(r.date)}`;
     if (r.repeat === 'weekly') return `أسبوعياً · ${(r.days || []).map((d) => DAY_NAMES[d]).join('، ') || 'لم تُحدَّد أيام'}`;
     return 'يومياً';
   }
@@ -94,7 +97,7 @@ export function occurrences(r, now, days = 21, hijriAdjust = 0) {
         break;
       case 'white': {
         const h = toHijri(g, hijriAdjust);
-        if (h.d >= 13 && h.d <= 15) push(day, `${when} من الأيام البيض (${h.d} ${HIJRI_MONTHS[h.m - 1]})`, 'صيام ثلاثة أيام من كل شهر صيام الدهر كله. رواه البخاري ومسلم.');
+        if (h.d >= 13 && h.d <= 15) push(day, `${when} من الأيام البيض (${num(h.d)} ${HIJRI_MONTHS[h.m - 1]})`, 'صيام ثلاثة أيام من كل شهر صيام الدهر كله. رواه البخاري ومسلم.');
         break;
       }
       case 'occasions': {

@@ -46,7 +46,7 @@ export function render() {
       ${row('volume', 'صوت النقر', 'نقرة ناعمة مع كل تسبيحة', sw(s.sound, 'set-toggle', 'data-k="sound"'))}
       ${row('vibrate', 'الاهتزاز', 'اهتزاز خفيف عند العدّ', sw(s.haptic, 'set-toggle', 'data-k="haptic"'))}
       <div class="set-row"><span class="set-ic">${icon('list')}</span><div class="set-txt"><b>شكل الأرقام</b></div>
-        <div class="seg sm">${[['arab', '١٢٣'], ['latn', '123']].map(([k, l]) => `<button class="seg-btn ${s.digits === k ? 'on' : ''}" data-act="set-digits" data-k="${k}">${l}</button>`).join('')}</div></div>
+        <div class="seg sm">${[['arab', '١٢٣'], ['latn', '123']].map(([k, l]) => `<button class="seg-btn ${s.digits === k ? 'on' : ''}" data-act="set-digits" data-k="${k}" data-digit-sample>${l}</button>`).join('')}</div></div>
     </section>
 
     <section class="card set-card">

@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
-import { cpSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, rmSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { VOICES } from '../src/data/adhan-voices.js';
 
 const out = 'www/build';
 rmSync(out, { recursive: true, force: true });
@@ -32,7 +33,22 @@ function tanzil(file) {
 writeFileSync(`${out}/quran.json`, JSON.stringify(tanzil('quran-uthmani.txt')));
 writeFileSync(`${out}/quran-search.json`, JSON.stringify(tanzil('quran-simple-clean.txt')));
 
+// أصوات الأذان الموجودة في assets/adhan: للمعاينة داخل التطبيق ولصوت إشعار الصلاة في أندرويد
+const RAW = 'android/app/src/main/res/raw';
+mkdirSync(`${out}/adhan`, { recursive: true });
+if (existsSync(RAW)) for (const f of readdirSync(RAW)) if (f.startsWith('adhan_')) rmSync(`${RAW}/${f}`);
+const adhan = [];
+for (const v of VOICES) {
+  const src = `assets/adhan/${v.file}`;
+  if (!existsSync(src)) continue;
+  cpSync(src, `${out}/adhan/${v.id}.mp3`);
+  if (existsSync('android/app/src/main/res')) { mkdirSync(RAW, { recursive: true }); cpSync(src, `${RAW}/adhan_${v.id}.mp3`); }
+  adhan.push(v.id);
+}
+console.log(`أصوات الأذان المدمجة: ${adhan.length ? adhan.join('، ') : 'لا يوجد'}`);
+
 await build({
+  define: { __ADHAN_AVAILABLE__: JSON.stringify(adhan) },
   entryPoints: ['src/main.js', 'src/styles.css'],
   bundle: true,
   minify: true,

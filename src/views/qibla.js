@@ -1,6 +1,6 @@
 // بوصلة القبلة التفاعلية
 import { icon } from '../icons.js';
-import { num, esc } from '../text.js';
+import { num, esc, fmtNum } from '../text.js';
 import { qiblaBearing, distanceToKaaba } from '../prayer.js';
 import { location } from '../services.js';
 import { fullHead } from './common.js';
@@ -37,10 +37,10 @@ export function render() {
       <p class="q-status" data-status>ضع الهاتف بشكل مسطّح، ثم أدره حتى تصل الكعبة إلى المؤشر في الأعلى.</p>
       <div class="q-info card">
         <div><b>${num(Math.round(q))}°</b><small>زاوية القبلة</small></div>
-        <div><b>${num(dist.toLocaleString('en-US'))}</b><small>كم إلى مكة</small></div>
+        <div><b>${fmtNum(dist)}</b><small>كم إلى مكة</small></div>
       </div>
       <button class="btn btn-soft" data-act="q-start" data-start hidden>${icon('compass')} تفعيل البوصلة</button>
-      <p class="muted small center">${icon('info')} أبعد الهاتف عن المعادن والمغناطيس، وحرّكه على شكل رقم ٨ لمعايرة الحساس إن كانت القراءة غير مستقرة.</p>
+      <p class="muted small center">${icon('info')} أبعد الهاتف عن المعادن والمغناطيس، وحرّكه على شكل رقم ${num(8)} لمعايرة الحساس إن كانت القراءة غير مستقرة.</p>
     </div>`;
 }
 

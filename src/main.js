@@ -18,6 +18,8 @@ import * as quran from './views/quran.js';
 import * as mushaf from './views/mushaf.js';
 import * as more from './views/more.js';
 import * as reminders from './views/reminders.js';
+import * as zakat from './views/zakat.js';
+import * as group from './views/group.js';
 import { welcome } from './views/welcome.js';
 import { actions as commonActions } from './views/common.js';
 import { actions as dhikrActions } from './views/dhikr.js';
@@ -29,7 +31,7 @@ const TABS = [
   { id: 'tasbih', label: 'المسبحة', icon: 'beads' },
   { id: 'more', label: 'المزيد', icon: 'grid' },
 ];
-const ROUTES = { home, quran, mushaf, library, read: reader, tasbih, more, journal, reminders, settings, qibla, names, whatsnew: more.whatsnew };
+const ROUTES = { home, quran, mushaf, group, library, read: reader, tasbih, more, journal, reminders, settings, qibla, names, zakat, whatsnew: more.whatsnew };
 const ACTIONS = Object.assign({}, commonActions, dhikrActions, ...Object.values(ROUTES).map((v) => v.actions || {}));
 const TAB_IDS = TABS.map((t) => t.id);
 

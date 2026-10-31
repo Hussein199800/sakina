@@ -147,12 +147,16 @@ export async function scheduleAll(list) {
   if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
   if (!list.length) return;
   await LocalNotifications.createChannel({ id: 'sakina', name: 'تذكيرات سكينة', importance: 4, visibility: 1, vibration: true }).catch(() => {});
+  // لكل صوت أذان قناة خاصة، لأن صوت القناة في أندرويد يُحدَّد عند إنشائها ولا يتغيّر بعدها
+  for (const ch of new Set(list.map((n) => n.channel).filter(Boolean))) {
+    await LocalNotifications.createChannel({ id: ch, name: list.find((n) => n.channel === ch).channelName || 'الأذان', importance: 5, visibility: 1, vibration: true, sound: `${ch}.mp3` }).catch(() => {});
+  }
   await LocalNotifications.schedule({
     notifications: list.map((n) => ({
       id: n.id,
       title: n.title,
       body: n.body,
-      channelId: 'sakina',
+      channelId: n.channel || 'sakina',
       smallIcon: 'ic_stat_sakina',
       extra: n.route ? { route: n.route } : undefined,
       schedule: n.at

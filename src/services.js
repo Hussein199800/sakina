@@ -6,7 +6,8 @@ import { computeTimes, PRAYERS } from './prayer.js';
 import { ymdInTz, toHijri, addDays, dateKey } from './dates.js';
 import { scheduleAll, notificationsSupported } from './native.js';
 import { occurrences } from './reminders.js';
-import { num } from './text.js';
+import { voiceById } from './data/adhan-voices.js';
+import { num, pagesLabel } from './text.js';
 import { todayRange } from './khatma.js';
 
 export const deviceTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } };
@@ -101,7 +102,10 @@ export function countOnce(item, catId) {
   let catDone = false;
   if (itemDone) {
     catDone = itemsOf(catId).every((it) => doneOf(it.id) >= it.n);
-    if (catDone && HABIT_FLAG[catId]) h[HABIT_FLAG[catId]] = 1;
+    // يُحتسب إتمام التصنيف الأصلي للذكر أيضاً (مثلاً عند قراءة أذكار الصباح من المفضلة)
+    for (const c of new Set([catId, item.cat])) {
+      if (HABIT_FLAG[c] && (c === catId ? catDone : itemsOf(c).every((it) => doneOf(it.id) >= it.n))) h[HABIT_FLAG[c]] = 1;
+    }
   }
   save();
   return { itemDone, catDone };
@@ -116,12 +120,15 @@ export function resetCat(catId) {
 const dayRec = (k) => state.history[k] || { m: 0, e: 0, p: 0, r: 0, t: 0, pr: [0, 0, 0, 0, 0] };
 export const lit = (k) => { const r = dayRec(k); return r.m || r.e ? (r.m && r.e ? 2 : 1) : 0; };
 
-export function streak() {
+// الرجوع يوماً تقويمياً (لا ٢٤ ساعة) حتى لا يُقفز يوم عند تغيّر التوقيت الصيفي
+const prevDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1, 12);
+
+export function streak(now = new Date()) {
   today();
-  let d = new Date();
-  if (!lit(dateKey(d))) d = new Date(d.getTime() - 86400000);
+  let d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+  if (!lit(dateKey(d))) d = prevDay(d);
   let n = 0;
-  while (lit(dateKey(d)) && n < 3650) { n += 1; d = new Date(d.getTime() - 86400000); }
+  while (lit(dateKey(d)) && n < 3650) { n += 1; d = prevDay(d); }
   return n;
 }
 
@@ -129,8 +136,9 @@ export function streak() {
 export function lastWeek() {
   today();
   const out = [];
+  const now = new Date();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000);
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i, 12);
     const k = dateKey(d);
     out.push({ key: k, date: d, rec: dayRec(k), isToday: i === 0 });
   }
@@ -142,8 +150,17 @@ export const palms = () => Object.keys(state.history).filter((k) => lit(k) === 2
 // ---------- التنبيهات ----------
 const parseTime = (s) => { const [h, m] = s.split(':').map(Number); return { hour: h || 0, minute: m || 0 }; };
 
-export async function rescheduleNotifications() {
-  if (!notificationsSupported) return;
+// الجدولة متسلسلة: نداءان متزامنان (مثلاً عند العودة للتطبيق مع تغيير إعداد) لا يتداخلان
+let scheduling = Promise.resolve();
+export function rescheduleNotifications() {
+  scheduling = scheduling.then(doReschedule, doReschedule);
+  return scheduling;
+}
+
+// حدّ أعلى لعدد الإشعارات المجدولة (أندرويد يرفض أكثر من ٥٠٠ منبّه للتطبيق)
+export const MAX_SCHEDULED = 300;
+
+export function buildNotifications(now = new Date()) {
   const n = state.settings.notif;
   const list = [];
   if (n.morning.on) list.push({ id: 1, title: 'أذكار الصباح', body: 'أصبحنا وأصبح الملك لله، حان وقت وردك الصباحي', daily: parseTime(n.morning.time), route: '#/read/morning' });
@@ -152,26 +169,32 @@ export async function rescheduleNotifications() {
   const k = state.khatma;
   if (k && k.remind) {
     const r = todayRange(k);
-    list.push({ id: 5, title: 'وردك من القرآن', body: `${num(k.perDay)} صفحات اليوم، ابدأ من الصفحة ${num(r.from)}. «اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعاً لأصحابه»`, daily: parseTime(k.time), route: '#/quran' });
+    list.push({ id: 5, title: 'وردك من القرآن', body: `${pagesLabel(k.perDay)} اليوم، ابدأ من الصفحة ${num(r.from)}. «اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعاً لأصحابه»`, daily: parseTime(k.time), route: '#/quran' });
   }
-  // التذكيرات المخصّصة: مواعيد محددة لثلاثة أسابيع، وتُجدَّد عند كل فتح للتطبيق
-  let rid = 1000;
-  for (const r of state.reminders) {
-    for (const o of occurrences(r, new Date(), 21, state.settings.hijriAdjust).slice(0, 25)) list.push({ id: rid++, title: o.title, body: o.body, at: o.at, route: '#/reminders' });
-  }
+  // الصلوات أولاً حتى لا يُسقطها الحدّ الأعلى
   if (n.prayers) {
-    const now = new Date();
+    const voice = voiceById(state.settings.adhanVoice);
     let g = localToday(now);
     for (let day = 0; day < 6; day++) {
       const t = timesFor(g);
       FIVE.forEach((key, i) => {
         if (t[key] > now) {
           const name = PRAYERS.find((p) => p.key === key).name;
-          list.push({ id: 100 + day * 10 + i, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home' });
+          list.push({ id: 100 + day * 10 + i, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home', channel: voice ? `adhan_${voice.id}` : '', channelName: voice ? `الأذان بصوت ${voice.name}` : '' });
         }
       });
       g = addDays(g, 1);
     }
   }
-  try { await scheduleAll(list); } catch (e) { /* تجاهل أخطاء الجدولة */ }
+  // التذكيرات المخصّصة: مواعيد محددة لثلاثة أسابيع، وتُجدَّد عند كل فتح للتطبيق
+  let rid = 1000;
+  for (const r of state.reminders) {
+    for (const o of occurrences(r, now, 21, state.settings.hijriAdjust).slice(0, 25)) list.push({ id: rid++, title: o.title, body: o.body, at: o.at, route: '#/reminders' });
+  }
+  return list.slice(0, MAX_SCHEDULED);
+}
+
+async function doReschedule() {
+  if (!notificationsSupported) return;
+  try { await scheduleAll(buildNotifications()); } catch (e) { /* تجاهل أخطاء الجدولة */ }
 }

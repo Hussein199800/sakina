@@ -1,7 +1,7 @@
 // التبويب الثاني: مكتبة الأذكار والأدعية
 import { state, save } from '../store.js';
 import { icon } from '../icons.js';
-import { num, esc, normalize } from '../text.js';
+import { num, esc, normalize, parseNum } from '../text.js';
 import { CATEGORIES } from '../data/adhkar.js';
 import { catProgress, itemsOf } from '../services.js';
 import { pageHead, bar, go } from './common.js';
@@ -30,6 +30,10 @@ function sections() {
     <section class="block">
       <div class="block-head"><h2>أذكار المواقف اليومية</h2></div>
       <div class="cat-rows">${group('moments').map((c) => catCard(c)).join('')}</div>
+    </section>
+    <section class="block">
+      <div class="block-head"><h2>الأوراد</h2></div>
+      <div class="cat-grid even">${group('wird').map((c) => catCard(c, true)).join('')}</div>
     </section>
     <section class="block">
       <div class="block-head"><h2>الأدعية والرقية</h2></div>
@@ -90,7 +94,7 @@ export function customEditor(existing) {
     <div class="field"><span>عدد مرات التكرار</span>
       <div class="stepper">
         <button class="icon-btn" data-step="-1" aria-label="إنقاص">${icon('minus')}</button>
-        <input id="c-n" type="number" inputmode="numeric" min="1" max="10000" value="${it.n}">
+        <input id="c-n" type="text" inputmode="numeric" value="${num(it.n)}" aria-label="عدد مرات التكرار">
         <button class="icon-btn" data-step="1" aria-label="زيادة">${icon('plus')}</button>
       </div>
       <div class="quick-n">${[1, 3, 7, 33, 100].map((n) => `<button class="chip" data-n="${n}">${num(n)}</button>`).join('')}</div>
@@ -100,12 +104,14 @@ export function customEditor(existing) {
     ${existing ? `<button class="btn btn-danger-soft" data-del>${icon('trash')} حذف</button>` : '<button class="btn btn-ghost" data-close>إلغاء</button>'}</div>`, {
     onMount: (body, close) => {
       const n = body.querySelector('#c-n');
-      body.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => { n.value = Math.max(1, (+n.value || 1) + +b.dataset.step); }));
-      body.querySelectorAll('[data-n]').forEach((b) => b.addEventListener('click', () => { n.value = b.dataset.n; }));
+      const count = () => Math.min(10000, Math.max(1, Math.round(parseNum(n.value)) || 1));
+      body.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => { n.value = num(Math.min(10000, Math.max(1, count() + +b.dataset.step))); }));
+      body.querySelectorAll('[data-n]').forEach((b) => b.addEventListener('click', () => { n.value = num(b.dataset.n); }));
+      n.addEventListener('blur', () => { n.value = num(count()); });
       body.querySelector('[data-save]').addEventListener('click', () => {
         const t = body.querySelector('#c-text').value.trim();
         if (!t) { toast('اكتب نص الذكر أولاً', 'info'); return; }
-        const data = { t, n: Math.min(10000, Math.max(1, parseInt(n.value, 10) || 1)), note: body.querySelector('#c-note').value.trim(), s: 'من أذكاري الخاصة' };
+        const data = { t, n: count(), note: body.querySelector('#c-note').value.trim(), s: 'من أذكاري الخاصة' };
         if (existing) Object.assign(state.custom.find((c) => c.id === existing.id), data);
         else state.custom.push({ id: `custom-${Date.now().toString(36)}`, ...data });
         save();

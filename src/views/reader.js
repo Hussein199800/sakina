@@ -50,9 +50,9 @@ function header() {
 }
 
 function meta(it) {
-  return `${it.note ? `<p class="note">${icon('info')} ${esc(it.note)}</p>` : ''}
-    ${it.v ? `<p class="virtue"><b>الفضل:</b> ${esc(it.v)}</p>` : ''}
-    ${it.s ? `<p class="source">${esc(it.s)}</p>` : ''}`;
+  return `${it.note ? `<p class="note">${icon('info')} ${esc(num(it.note))}</p>` : ''}
+    ${it.v ? `<p class="virtue"><b>الفضل:</b> ${esc(num(it.v))}</p>` : ''}
+    ${it.s ? `<p class="source">${esc(num(it.s))}</p>` : ''}`;
 }
 
 function counterLabel(it) {

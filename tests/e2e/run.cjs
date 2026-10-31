@@ -6,6 +6,8 @@ const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '../../www');
 const OUT = path.join(__dirname, 'out');
+// الإصدار الحالي حتى لا تظهر نافذة «ما الجديد» في الاختبارات التي لا تخصّها
+const VERSION = fs.readFileSync(path.join(__dirname, '../../src/version.js'), 'utf8').match(/VERSION = '([^']+)'/)[1];
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
 
 const server = http.createServer((req, res) => {
@@ -26,14 +28,14 @@ const server = http.createServer((req, res) => {
   const shots = process.argv.includes('--shots');
   for (const theme of ['oasis', 'midnight', 'dawn', 'royal']) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'ar', timezoneId: 'Africa/Cairo', hasTouch: true });
-    await ctx.addInitScript((t) => {
-      if (!localStorage.getItem('sakina.v1')) localStorage.setItem('sakina.v1', JSON.stringify({ settings: { theme: t, location: { type: 'city', cityId: 5 } }, app: { welcomed: true, lastSeenVersion: '1.1.0', autoUpdate: false } }));
-    }, theme);
+    await ctx.addInitScript(([t, v]) => {
+      if (!localStorage.getItem('sakina.v1')) localStorage.setItem('sakina.v1', JSON.stringify({ settings: { theme: t, location: { type: 'city', cityId: 5 } }, app: { welcomed: true, lastSeenVersion: v, autoUpdate: false } }));
+    }, [theme, VERSION]);
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(`${theme}: ${e.message}`));
     page.on('console', (m) => { if (m.type() === 'error') errors.push(`${theme}: ${m.text()}`); });
     const routes = theme === 'oasis'
-      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom']
+      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group']
       : ['home', 'quran', 'mushaf/2', 'read/morning', 'more'];
     for (const r of routes) {
       await page.goto(`${base}#/${r}`);
@@ -67,6 +69,58 @@ const server = http.createServer((req, res) => {
       const n = await page.$$eval('.result', (els) => els.length);
       if (!n) errors.push('البحث بدون تشكيل لم يُرجع نتائج');
       if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-search.png') });
+      // حاسبة الزكاة: سعر الذهب ونقود بأرقام هندية
+      await page.goto(`${base}#/zakat`);
+      await page.waitForTimeout(300);
+      await page.fill('[data-z="goldPrice"]', '٤٠٠٠');
+      await page.fill('[data-z="cash"]', '400000');
+      await page.waitForTimeout(200);
+      const due = await page.textContent('.z-due b');
+      if (due.trim() !== '١٠٬٠٠٠٫٠٠') errors.push(`ناتج الزكاة غير صحيح: ${due}`);
+      if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-zakat-result.png'), fullPage: true });
+      // الختمة الجماعية: ثلاثة مشاركين وإتمام نصيب أحدهم
+      await page.goto(`${base}#/group`);
+      await page.waitForTimeout(300);
+      await page.click('[data-act="g-new"]');
+      await page.waitForTimeout(300);
+      await page.fill('#g-name', 'ختمة العائلة');
+      await page.fill('#g-members', 'محمد\nأحمد\nفاطمة');
+      await page.click('[data-save]');
+      await page.waitForTimeout(400);
+      const rows = await page.$$eval('.gc-row small', (els) => els.map((e) => e.textContent));
+      if (rows.join('|') !== 'الأجزاء ١–١٠|الأجزاء ١١–٢٠|الأجزاء ٢١–٣٠') errors.push(`توزيع الختمة الجماعية خاطئ: ${rows}`);
+      await page.click('.gc-check');
+      await page.waitForTimeout(300);
+      if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-group.png'), fullPage: true });
+      // مصمّم بطاقة المشاركة
+      await page.goto(`${base}#/read/morning`);
+      await page.waitForTimeout(400);
+      await page.click('[data-act="d-image"] >> nth=0');
+      await page.waitForTimeout(1500);
+      await page.click('[data-bg="night"]');
+      await page.click('[data-size="story"]');
+      await page.waitForTimeout(1500);
+      const imgOk = await page.$eval('[data-cd-img]', (i) => i.naturalWidth === 1080 && i.naturalHeight === 1920);
+      if (!imgOk) errors.push('بطاقة المشاركة لم تُرسم بمقاس «حالة» ١٠٨٠×١٩٢٠');
+      if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-card-designer.png') });
+      // منتقي الوقت في التذكيرات
+      await page.goto(`${base}#/reminders`);
+      await page.waitForTimeout(300);
+      await page.click('[data-act="rem-base"][data-k="morning"]');
+      await page.waitForTimeout(300);
+      await page.click('[data-act="rem-base-time"][data-k="morning"]');
+      await page.waitForTimeout(300);
+      await page.click('[data-dh="1"]');
+      await page.click('[data-mm="15"]');
+      if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-time-picker.png') });
+      await page.click('[data-ok]');
+      await page.waitForTimeout(400);
+      const t = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).settings.notif.morning.time);
+      if (t !== '07:15') errors.push(`منتقي الوقت لم يحفظ القيمة الصحيحة: ${t}`);
+      await page.click('[data-act="adhan-pick"]').catch(() => {});
+      await page.waitForTimeout(300);
+      if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-adhan-voices.png') });
+
       // الختمة: بدء ختمة ثم قراءة ٥ صفحات
       await page.goto(`${base}#/quran`);
       await page.waitForTimeout(400);
@@ -131,7 +185,7 @@ const server = http.createServer((req, res) => {
   // تحديث متاح: الشريط في «المزيد» ونافذة التحديث مع إرشادات النسخة الاحتياطية
   {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'ar' });
-    await ctx.addInitScript(() => localStorage.setItem('sakina.v1', JSON.stringify({ app: { welcomed: true, lastSeenVersion: '1.1.0', autoUpdate: false, latest: { code: 99, name: '9.9.9', url: '', notes: ['ميزة تجريبية'] } } })));
+    await ctx.addInitScript((v) => localStorage.setItem('sakina.v1', JSON.stringify({ app: { welcomed: true, lastSeenVersion: v, autoUpdate: false, latest: { code: 99, name: '9.9.9', url: '', notes: ['ميزة تجريبية'] } } })), VERSION);
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(`update: ${e.message}`));
     await page.goto(`${base}#/more`);

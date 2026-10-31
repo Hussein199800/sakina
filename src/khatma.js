@@ -4,8 +4,8 @@ import { dateKey } from './dates.js';
 import { TOTAL_PAGES } from './data/quran-meta.js';
 
 export const PLANS = [
-  { perDay: 5, label: '٥ صفحات يومياً' },
-  { perDay: 10, label: '١٠ صفحات (نصف جزء)' },
+  { perDay: 5, label: '5 صفحات يومياً' },
+  { perDay: 10, label: '10 صفحات (نصف جزء)' },
   { perDay: 20, label: 'جزء يومياً' },
   { perDay: 40, label: 'جزءان يومياً' },
 ];

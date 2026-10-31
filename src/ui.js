@@ -2,7 +2,7 @@
 import { state } from './store.js';
 import { icon } from './icons.js';
 import { vibrate, setStatusBar } from './native.js';
-import { stripTashkeel } from './text.js';
+import { stripTashkeel, num } from './text.js';
 
 export const THEMES = {
   oasis: { name: 'الواحة الهادئة', hint: 'أخضر ميرمي هادئ', bg: '#F5F7F5', card: '#FFFFFF', primary: '#1F5E43', secondary: '#D4A373', text: '#18241E', dark: false },
@@ -154,56 +154,90 @@ function wrapLines(c, text, maxW) {
   return lines;
 }
 
-export async function renderShareCard({ text, source, title }) {
+// خلفيات بطاقة المشاركة: [بداية التدرج، نهايته، لون النص، لون الزخرفة]
+export const CARD_BACKGROUNDS = {
+  theme: null,
+  emerald: ['#1F5E43', '#0F3324', '#FFFFFF', '#D4A373'],
+  night: ['#16243A', '#070E1C', '#F3EEDF', '#E6C280'],
+  dawn: ['#F6E7D2', '#E8C9A6', '#3A2A1C', '#8A5A36'],
+  lavender: ['#5E548E', '#2E2650', '#FFFFFF', '#CDB8F0'],
+  paper: ['#FFFDF7', '#F1ECE0', '#1F2A24', '#1F5E43'],
+};
+export const CARD_SIZES = { square: [1080, 1080], post: [1080, 1350], story: [1080, 1920] };
+export const DEFAULT_CARD = { bg: 'theme', size: 'post', scale: 1, source: true, brand: true, ornament: true };
+
+const darken = (hex, f) => {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (v) => Math.round(v * f);
+  return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+};
+
+function cardColors(bg) {
+  if (CARD_BACKGROUNDS[bg]) return CARD_BACKGROUNDS[bg];
   const t = THEMES[state.settings.theme] || THEMES.oasis;
-  const W = 1080, H = 1350;
+  return t.dark ? ['#14212C', '#0B1218', '#FFFFFF', t.secondary] : [t.primary, darken(t.primary, 0.62), '#FFFFFF', t.secondary];
+}
+
+/**
+ * يرسم بطاقة مشاركة ويعيدها كصورة PNG.
+ * @param {{text: string, source?: string, title?: string}} p
+ * @param {object} o خيارات التصميم (الخلفية، المقاس، حجم الخط، المصدر، اسم التطبيق، الزخرفة)
+ */
+export async function renderShareCard({ text, source, title }, o = DEFAULT_CARD) {
+  const opt = { ...DEFAULT_CARD, ...o };
+  const [W, H] = CARD_SIZES[opt.size] || CARD_SIZES.post;
+  const [c1, c2, ink, accent] = cardColors(opt.bg);
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H; cv.dir = 'rtl';
   const c = cv.getContext('2d');
   try { await Promise.all([document.fonts.load('700 48px Amiri'), document.fonts.load('500 30px "IBM Plex Sans Arabic"')]); } catch (e) { /* خط النظام */ }
   const g = c.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, t.dark ? '#14212C' : t.primary);
-  g.addColorStop(1, t.dark ? '#0B1218' : rgba(t.primary, 0.82));
-  c.fillStyle = t.dark ? '#0E161E' : '#ffffff';
-  c.fillRect(0, 0, W, H);
+  g.addColorStop(0, c1);
+  g.addColorStop(1, c2);
   c.fillStyle = g;
   c.fillRect(0, 0, W, H);
-  // زخرفة هادئة
-  c.globalAlpha = 0.08;
-  c.strokeStyle = '#ffffff';
-  c.lineWidth = 2;
-  for (let r = 120; r < 900; r += 70) { c.beginPath(); c.arc(W, 0, r, 0, Math.PI * 2); c.stroke(); }
-  c.globalAlpha = 1;
-  // بطاقة داخلية
+  if (opt.ornament) {
+    c.globalAlpha = 0.09;
+    c.strokeStyle = accent;
+    c.lineWidth = 2;
+    for (let r = 120; r < Math.max(W, H); r += 70) { c.beginPath(); c.arc(W, 0, r, 0, Math.PI * 2); c.stroke(); }
+    c.globalAlpha = 1;
+  }
   const pad = 80;
-  c.fillStyle = 'rgba(255,255,255,0.08)';
+  const top = 170;
+  const bottom = opt.brand || opt.source ? 210 : 120;
+  const boxH = H - top - bottom;
+  c.fillStyle = ink === '#FFFFFF' || ink === '#F3EEDF' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)';
   c.beginPath();
-  if (c.roundRect) c.roundRect(pad, 170, W - pad * 2, H - 380, 48); else c.rect(pad, 170, W - pad * 2, H - 380);
+  if (c.roundRect) c.roundRect(pad, top, W - pad * 2, boxH, 48); else c.rect(pad, top, W - pad * 2, boxH);
   c.fill();
   c.direction = 'rtl';
   c.textAlign = 'center';
-  c.fillStyle = t.secondary;
+  c.fillStyle = accent;
   c.font = '500 34px "IBM Plex Sans Arabic", sans-serif';
   c.fillText(title || 'ذكر', W / 2, 125);
   const body = dhikrText(text);
-  let size = 58;
+  let size = Math.round(58 * opt.scale);
   let lines;
-  for (; size >= 30; size -= 2) {
+  for (; size >= 26; size -= 2) {
     c.font = `700 ${size}px Amiri, serif`;
     lines = wrapLines(c, body, W - pad * 2 - 100);
-    if (lines.length * size * 1.75 < H - 480) break;
+    if (lines.length * size * 1.75 < boxH - 60) break;
   }
   const lh = size * 1.75;
-  let y = 170 + (H - 380) / 2 - ((lines.length - 1) * lh) / 2 + size / 3;
-  c.fillStyle = '#ffffff';
+  let y = top + boxH / 2 - ((lines.length - 1) * lh) / 2 + size / 3;
+  c.fillStyle = ink;
   for (const l of lines) { c.fillText(l, W / 2, y); y += lh; }
-  if (source) {
+  if (opt.source && source) {
     c.font = '400 30px "IBM Plex Sans Arabic", sans-serif';
-    c.fillStyle = 'rgba(255,255,255,0.75)';
-    c.fillText(source, W / 2, H - 150);
+    c.globalAlpha = 0.78;
+    c.fillText(num(source), W / 2, H - (opt.brand ? 140 : 80));
+    c.globalAlpha = 1;
   }
-  c.font = '600 32px "IBM Plex Sans Arabic", sans-serif';
-  c.fillStyle = t.secondary;
-  c.fillText('سكينة · رفيقك الروحي', W / 2, H - 80);
+  if (opt.brand) {
+    c.font = '600 32px "IBM Plex Sans Arabic", sans-serif';
+    c.fillStyle = accent;
+    c.fillText('سكينة · رفيقك الروحي', W / 2, H - 70);
+  }
   return cv.toDataURL('image/png');
 }
