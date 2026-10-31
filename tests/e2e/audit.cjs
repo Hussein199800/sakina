@@ -8,7 +8,7 @@ const server = http.createServer((req, res) => {
   const f = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]).replace(/\/$/, '/index.html'));
   fs.readFile(f, (e, d) => { if (e) { res.writeHead(404); res.end(); return; } res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' }); res.end(d); });
 });
-const ROUTES = ['home', 'quran', 'mushaf/3', 'group', 'library', 'read/morning', 'read/salawat', 'read/hamd', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'zakat', 'whatsnew'];
+const ROUTES = ['setup', 'home', 'quran', 'mushaf/3', 'group', 'library', 'read/morning', 'read/salawat', 'read/hamd', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'zakat', 'whatsnew'];
 const problems = [];
 (async () => {
   await new Promise((r) => server.listen(0, r));

@@ -544,7 +544,7 @@ button.tile:active { transform: scale(.98); }
 .switch i { position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform .25s cubic-bezier(.2,.85,.25,1); }
 .switch.on { background: var(--primary); }
 .switch.on i { transform: translateX(-20px); }
-:root[data-mode="dark"] .switch { background: rgba(255,255,255,.14); }
+:root[data-mode="dark"] .switch:not(.on) { background: rgba(255,255,255,.14); }
 .font-preview { text-align: center; padding: 6px 0 12px; line-height: 1.9; transition: font-size .2s; }
 .data-btns { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; padding: 10px 0 12px; }
 .data-btns .btn { padding: 0 10px; font-size: 14px; }
@@ -686,6 +686,7 @@ button.tile:active { transform: scale(.98); }
 .upd-help ol { margin: 0; padding-right: 20px; font-size: 13.5px; line-height: 1.9; }
 .upd-help li + li { margin-top: 4px; }
 .sm-btn { min-height: 42px; font-size: 13.5px; margin: 6px 0 2px; }
+.upd-help-list { margin: 4px 0 10px; padding-right: 20px; line-height: 1.9; font-size: 14px; }
 .upd-notes { margin: 6px 0 12px; padding-right: 20px; line-height: 1.9; }
 .wn-page { padding-top: 4px; }
 .wn-block { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px; margin-bottom: 14px; }
@@ -777,7 +778,39 @@ textarea.plain { font-family: var(--ui) !important; font-size: 16px !important; 
 .z-rows > div { display: flex; justify-content: space-between; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--line); font-size: 14px; }
 .z-rows span { color: var(--muted); }
 .z-rows b { text-align: left; }
+.cur-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cur-chips .chip { min-height: 38px; }
+.cur-chips .chip.on { background: var(--primary); color: var(--on-primary); }
+.z-field.slim { border-top: 0; padding-top: 10px; }
+.z-conv { margin: -4px 2px 8px; color: var(--primary) !important; }
 .z-notes { margin: 4px 0 8px; padding-right: 20px; font-size: 13.5px; line-height: 1.9; color: var(--muted); }
+
+/* ============ التخصيص الأولي ============ */
+.setup { min-height: 100vh; display: flex; flex-direction: column; padding-top: var(--safe-top); }
+.su-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+.su-dots { display: flex; gap: 6px; }
+.su-dots i { width: 8px; height: 8px; border-radius: 4px; background: var(--line); transition: all .3s; }
+.su-dots i.past { background: var(--primary-mid); }
+.su-dots i.on { width: 24px; background: var(--primary); }
+.su-skip { min-height: 44px; padding: 0 12px; color: var(--muted); font-weight: 600; }
+.su-body { flex: 1; padding-bottom: 16px; animation: rise .35s ease both; }
+.su-hero { text-align: center; padding: 8vh 10px 0; }
+.su-hero h1 { font-size: 28px; margin: 14px 0 10px; }
+.su-hero p { line-height: 1.9; margin-bottom: 8px; }
+.su-title { font-size: 24px; display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+.su-title .ic { width: 26px; height: 26px; color: var(--primary); }
+.su-sub { color: var(--muted); margin-bottom: 16px; }
+.su-loc { display: flex; flex-direction: column; gap: 2px; text-align: center; }
+.su-loc b { font-size: 20px; }
+.su-card { margin-top: 14px; }
+.su-modes { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; }
+.su-mode { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 10px; border-radius: 22px; background: var(--card); border: 2px solid var(--line); text-align: center; }
+.su-mode .ic { width: 30px; height: 30px; color: var(--primary); }
+.su-mode small { color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+.su-mode.on { border-color: var(--primary); background: var(--primary-soft); }
+.su-plans .plan { min-height: 72px; justify-content: center; }
+.su-foot { position: -webkit-sticky; position: sticky; bottom: 0; padding: 12px 0 calc(16px + var(--safe-bottom)); background: linear-gradient(transparent, var(--bg) 30%); }
+.su-foot .btn { margin-top: 0; }
 
 /* ============ منتقي الوقت والتاريخ ============ */
 .time-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--bg); font-size: 14.5px; font-weight: 600; color: var(--text); white-space: nowrap; flex: none; }

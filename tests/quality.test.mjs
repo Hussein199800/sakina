@@ -1,11 +1,11 @@
 // اختبارات الجودة: الحسابات (الزكاة، توزيع الختمة)، تنسيق الأرقام، سلامة البيانات، الأيام والتنبيهات
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeZakat, NISAB_GOLD_G, NISAB_SILVER_G } from '../src/zakat.js';
+import { computeZakat, NISAB_GOLD_G, NISAB_SILVER_G, price24, CURRENCIES } from '../src/zakat.js';
 import { distribute } from '../src/group.js';
 import { num, parseNum, fmtNum, fmtPct, plural, pagesLabel, setDigits } from '../src/text.js';
 import { state, sanitize, DEFAULTS } from '../src/store.js';
-import { streak, countOnce, buildNotifications, MAX_SCHEDULED } from '../src/services.js';
+import { streak, countOnce, buildNotifications, buildOverlays, MAX_SCHEDULED } from '../src/services.js';
 import { CATEGORY_BY_ID } from '../src/data/adhkar.js';
 import { dateKey } from '../src/dates.js';
 
@@ -129,4 +129,34 @@ test('التنبيهات: الصلوات لها الأولوية ولا يتجا
   assert.equal(new Set(list.map((n) => n.id)).size, list.length, 'لا تكرار في معرّفات الإشعارات');
   state.reminders = [];
   state.settings.notif.prayers = false;
+});
+
+test('تحويل سعر الذهب من عيار ٢١ أو ١٨ إلى ٢٤، والعملات المتاحة', () => {
+  assert.equal(price24(3500, 21), 4000);
+  assert.equal(price24(3000, 18), 4000);
+  assert.equal(price24(4000, 24), 4000);
+  assert.equal(price24(4000, 99), 4000, 'عيار غير معروف يُعامل كعيار ٢٤');
+  assert.equal(price24(-5, 21), 0);
+  const names = CURRENCIES.map((c) => c[0]);
+  assert.ok(names.indexOf('الليرة السورية الجديدة') !== -1 && names.indexOf('الدولار الأمريكي') !== -1);
+});
+
+test('الفقاعة العائمة: مواعيد أسبوع لأذكار الصباح والمساء، وتُتخطّى إذا أُتمّت أذكار اليوم', () => {
+  const s = state.settings;
+  s.overlay = true;
+  s.notif.morning = { on: true, time: '06:30' };
+  s.notif.evening = { on: true, time: '17:00' };
+  s.notif.sleep = { on: false, time: '22:30' };
+  state.progress = { date: dateKey(), counts: {} };
+  const now = new Date(2026, 9, 31, 5, 0);
+  let list = buildOverlays(now);
+  assert.equal(list.length, 14);
+  assert.deepEqual([list[0].at.getHours(), list[0].at.getMinutes(), list[0].route], [6, 30, '/read/morning']);
+  assert.equal(new Set(list.map((o) => o.id)).size, list.length);
+  // بعد السابعة صباحاً: لا موعد صباح اليوم
+  list = buildOverlays(new Date(2026, 9, 31, 7, 0));
+  assert.equal(list.filter((o) => o.route === '/read/morning').length, 6);
+  // الإيقاف يلغي كل المواعيد
+  s.overlay = false;
+  assert.equal(buildOverlays(now).length, 0);
 });

@@ -4,7 +4,7 @@ import { CITIES, DEFAULT_CITY } from './data/cities.js';
 import { CATEGORY_BY_ID } from './data/adhkar.js';
 import { computeTimes, PRAYERS } from './prayer.js';
 import { ymdInTz, toHijri, addDays, dateKey } from './dates.js';
-import { scheduleAll, notificationsSupported } from './native.js';
+import { scheduleAll, notificationsSupported, scheduleOverlays, overlaySupported } from './native.js';
 import { occurrences } from './reminders.js';
 import { voiceById } from './data/adhan-voices.js';
 import { num, pagesLabel } from './text.js';
@@ -194,7 +194,34 @@ export function buildNotifications(now = new Date()) {
   return list.slice(0, MAX_SCHEDULED);
 }
 
+/**
+ * مواعيد الفقاعة العائمة لأسبوع: لأذكار الصباح والمساء والنوم المفعّلة.
+ * يُتخطّى موعد اليوم إن كانت الأذكار قد أُتمّت قبله.
+ */
+const BUBBLES = [
+  ['morning', 1, 'أذكار الصباح', 'أصبحنا وأصبح الملك لله'],
+  ['evening', 2, 'أذكار المساء', 'أمسينا وأمسى الملك لله'],
+  ['sleep', 3, 'أذكار النوم', 'باسمك ربي وضعت جنبي'],
+];
+export function buildOverlays(now = new Date()) {
+  if (!state.settings.overlay) return [];
+  const out = [];
+  for (const [key, slot, title, body] of BUBBLES) {
+    const n = state.settings.notif[key];
+    if (!n || !n.on) continue;
+    const { hour, minute } = parseTime(n.time);
+    for (let d = 0; d < 7; d++) {
+      const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, hour, minute, 0, 0);
+      if (at <= now) continue;
+      if (d === 0 && catProgress(key) >= 1) continue;
+      out.push({ id: 7000 + slot * 10 + d, at, title, body, route: `/read/${key}` });
+    }
+  }
+  return out;
+}
+
 async function doReschedule() {
+  if (overlaySupported) await scheduleOverlays(buildOverlays());
   if (!notificationsSupported) return;
   try { await scheduleAll(buildNotifications()); } catch (e) { /* تجاهل أخطاء الجدولة */ }
 }

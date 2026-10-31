@@ -9,7 +9,7 @@ import { fullHead, refresh } from './common.js';
 import { timeButton, dateButton, pickTime, pickDate, fmtClock, fmtDay } from './pickers.js';
 import { openSheet, toast, confirmSheet } from '../ui.js';
 import { rescheduleNotifications } from '../services.js';
-import { notificationsSupported, ensureNotifyPermission, exactAlarmsAllowed, openExactAlarmSettings, isNative } from '../native.js';
+import { notificationsSupported, ensureNotifyPermission, exactAlarmsAllowed, openExactAlarmSettings, isNative, overlaySupported, overlayGranted, openOverlaySettings, showOverlayNow } from '../native.js';
 
 export const full = true;
 export const tab = 'more';
@@ -45,6 +45,8 @@ export function render() {
       ${baseRow('morning', 'sunrise', 'أذكار الصباح')}
       ${baseRow('evening', 'sunset', 'أذكار المساء')}
       ${baseRow('sleep', 'moon', 'أذكار النوم')}
+      ${overlaySupported ? `<div class="set-row"><span class="set-ic">${icon('bubble')}</span><div class="set-txt"><b>فقاعة عائمة فوق التطبيقات</b><small>دائرة صغيرة تظهر فوق أي تطبيق في وقت أذكار الصباح والمساء والنوم</small></div>${sw(state.settings.overlay, 'rem-overlay')}</div>
+      ${state.settings.overlay ? `<button class="link-row" data-act="rem-overlay-test">${icon('sparkle')} جرّب الفقاعة الآن ${icon('chevron')}</button>` : ''}` : ''}
       <div class="set-row"><span class="set-ic">${icon('mosque')}</span><div class="set-txt"><b>دخول وقت الصلاة</b><small>إشعار عند كل أذان</small></div>${sw(state.settings.notif.prayers, 'rem-prayers')}</div>
       <button class="set-row link" data-act="adhan-pick" ${state.settings.notif.prayers ? '' : 'disabled'}>
         <span class="set-ic">${icon('volume')}</span><div class="set-txt"><b>صوت الأذان</b><small>${voiceById(state.settings.adhanVoice) ? voiceById(state.settings.adhanVoice).name : 'نغمة الإشعار الافتراضية'}</small></div>${icon('chevron')}
@@ -234,6 +236,27 @@ export const actions = {
     save();
     await rescheduleNotifications();
     refresh();
+  },
+  'rem-overlay': async () => {
+    const s = state.settings;
+    if (s.overlay) { s.overlay = false; save(); await rescheduleNotifications(); refresh(); return; }
+    if (await overlayGranted()) { s.overlay = true; save(); await rescheduleNotifications(); toast('ستظهر الفقاعة في أوقات الأذكار', 'bubble'); refresh(); return; }
+    openSheet(`<div class="center"><div class="about-logo">${icon('bubble')}</div><h3 class="sheet-title">إذن الظهور فوق التطبيقات</h3></div>
+      <p class="sheet-text">لتظهر الفقاعة فوق أي تطبيق تستخدمه، يحتاج أندرويد إلى إذن «الظهور فوق التطبيقات الأخرى».</p>
+      <ol class="upd-help-list"><li>اضغط «منح الإذن» لتفتح صفحة الإعداد.</li><li>فعّل الخيار بجانب «سكينة».</li><li>ارجع إلى التطبيق، وستُفعَّل الفقاعة تلقائياً.</li></ol>
+      <p class="muted small">لا يستخدم التطبيق هذا الإذن إلا لإظهار الفقاعة في أوقات التذكير التي تختارها.</p>
+      <div class="row-btns"><button class="btn btn-primary" data-grant>${icon('settings')} منح الإذن</button><button class="btn btn-ghost" data-close>لاحقاً</button></div>`, {
+      onMount: (body, close) => body.querySelector('[data-grant]').addEventListener('click', async () => {
+        state.app.overlayPending = true;
+        save();
+        close();
+        await openOverlaySettings();
+      }),
+    });
+  },
+  'rem-overlay-test': async () => {
+    const ok = await showOverlayNow('أذكار الصباح', 'هكذا ستظهر الفقاعة في وقت التذكير', '/read/morning');
+    if (!ok) toast('امنح إذن الظهور فوق التطبيقات أولاً', 'info');
   },
   'rem-prayers': async () => {
     const n = state.settings.notif;

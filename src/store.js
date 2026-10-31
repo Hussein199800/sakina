@@ -24,6 +24,8 @@ export const DEFAULTS = {
       prayers: false,
     },
     adhanVoice: '',
+    // الفقاعة العائمة فوق التطبيقات عند تذكير الأذكار
+    overlay: false,
   },
   quran: { lastPage: 0, fontSize: 27, bookmarks: [] },
   // الختمة: page = الصفحة التالية للقراءة، log = الصفحات المقروءة لكل يوم
@@ -84,6 +86,8 @@ export function sanitize(st) {
     if (!TIME.test(s.notif[k].time)) s.notif[k].time = d.settings.notif[k].time;
   }
   s.notif.prayers = !!s.notif.prayers;
+  s.overlay = !!s.overlay;
+  if (typeof s.adhanVoice !== 'string') s.adhanVoice = '';
   for (const k of ['favorites', 'custom', 'reminders']) if (!Array.isArray(st[k])) st[k] = [];
   if (st.groups !== undefined && !Array.isArray(st.groups)) st.groups = [];
   st.favorites = st.favorites.filter((x) => typeof x === 'string');

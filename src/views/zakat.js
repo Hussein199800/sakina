@@ -2,13 +2,13 @@
 import { state, save } from '../store.js';
 import { icon } from '../icons.js';
 import { num, esc, parseNum, fmtNum, getDigits } from '../text.js';
-import { computeZakat, KARATS, NISAB_GOLD_G, NISAB_SILVER_G } from '../zakat.js';
+import { computeZakat, KARATS, NISAB_GOLD_G, NISAB_SILVER_G, CURRENCIES, price24 } from '../zakat.js';
 import { fullHead } from './common.js';
 
 export const full = true;
 export const tab = 'more';
 
-const DEFAULT = { currency: '', goldPrice: 0, silverPrice: 0, basis: 'gold', cash: 0, gold: {}, silver: 0, trade: 0, receivables: 0, debts: 0 };
+const DEFAULT = { currency: '', goldKarat: 24, goldPrice: 0, silverPrice: 0, basis: 'gold', cash: 0, gold: {}, silver: 0, trade: 0, receivables: 0, debts: 0 };
 const data = () => { if (!state.zakat) state.zakat = JSON.parse(JSON.stringify(DEFAULT)); return state.zakat; };
 
 const field = (key, label, hint = '') => {
@@ -23,8 +23,13 @@ export function render() {
     <section class="card set-card z-card">
       <h2 class="set-title">${icon('info')} الأسعار والنصاب</h2>
       <p class="muted small">أدخل سعر الغرام اليوم في بلدك (يتغيّر يومياً، والتطبيق لا يتصل بالإنترنت لجلبه).</p>
-      <label class="z-field"><span>العملة <small>اختياري، مثل: ج.م، ر.س، د.ع</small></span><input type="text" data-z="currency" value="${esc(z.currency)}" maxlength="8" autocomplete="off"></label>
-      ${field('goldPrice', `سعر غرام الذهب عيار ${num(24)}`)}
+      <div class="field"><span>العملة</span>
+        <div class="cur-chips">${CURRENCIES.map(([name, sym]) => `<button class="chip ${z.currency === sym ? 'on' : ''}" data-cur="${esc(sym)}">${name}</button>`).join('')}</div>
+        <label class="z-field slim"><span><small>أو اكتب رمز عملة أخرى</small></span><input type="text" data-z="currency" value="${esc(z.currency)}" maxlength="8" autocomplete="off"></label>
+      </div>
+      <div class="field"><span>سعر الغرام الذي تعرفه بعيار</span><div class="seg">${[24, 21, 18].map((k) => `<button class="seg-btn ${(z.goldKarat || 24) === k ? 'on' : ''}" data-karat="${k}">${num(k)}</button>`).join('')}</div></div>
+      ${field('goldPrice', `سعر غرام الذهب عيار ${num(z.goldKarat || 24)}`)}
+      <p class="muted small z-conv" data-z-conv></p>
       ${field('silverPrice', 'سعر غرام الفضة الخالصة')}
       <div class="field"><span>النصاب المعتمد</span><div class="seg">
         <button class="seg-btn ${z.basis === 'gold' ? 'on' : ''}" data-basis="gold">الذهب (${num(NISAB_GOLD_G)} غ)</button>
@@ -57,7 +62,9 @@ export function render() {
 
 function show(root) {
   const z = data();
-  const r = computeZakat(z);
+  const r = computeZakat({ ...z, goldPrice: price24(z.goldPrice, z.goldKarat || 24) });
+  const conv = root.querySelector('[data-z-conv]');
+  if (conv) conv.textContent = (z.goldKarat || 24) !== 24 && z.goldPrice ? `يعادل سعر غرام عيار ${num(24)}: ${fmtNum(price24(z.goldPrice, z.goldKarat), 2)}${z.currency ? ` ${z.currency}` : ''}` : '';
   const cur = z.currency ? ` ${esc(z.currency)}` : '';
   const money = (v) => `${fmtNum(v, 2)}${cur}`;
   root.querySelector('[data-z-result]').innerHTML = r.missingPrice
@@ -79,7 +86,10 @@ export function mount(root) {
     inp.addEventListener('input', () => {
       const key = inp.dataset.z;
       const z = data();
-      if (key === 'currency') z.currency = inp.value.trim();
+      if (key === 'currency') {
+        z.currency = inp.value.trim();
+        root.querySelectorAll('[data-cur]').forEach((x) => x.classList.toggle('on', x.dataset.cur === z.currency));
+      }
       else {
         const v = parseNum(inp.value);
         const val = Number.isFinite(v) && v >= 0 ? v : 0;
@@ -95,6 +105,18 @@ export function mount(root) {
       if (Number.isFinite(v) && v >= 0) inp.value = num(v);
     });
   });
+  root.querySelectorAll('[data-cur]').forEach((b) => b.addEventListener('click', () => {
+    data().currency = b.dataset.cur;
+    save();
+    root.querySelector('[data-z="currency"]').value = b.dataset.cur;
+    root.querySelectorAll('[data-cur]').forEach((x) => x.classList.toggle('on', x === b));
+    show(root);
+  }));
+  root.querySelectorAll('[data-karat]').forEach((b) => b.addEventListener('click', () => {
+    data().goldKarat = +b.dataset.karat;
+    save();
+    document.dispatchEvent(new Event('app:refresh'));
+  }));
   root.querySelectorAll('[data-basis]').forEach((b) => b.addEventListener('click', () => {
     data().basis = b.dataset.basis;
     save();

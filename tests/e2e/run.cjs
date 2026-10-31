@@ -162,9 +162,28 @@ const server = http.createServer((req, res) => {
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(`welcome: ${e.message}`));
     await page.goto(`${base}#/home`);
-    await page.waitForTimeout(1200);
-    if (!(await page.$('.welcome'))) errors.push('شاشة الترحيب لم تظهر للمستخدم الجديد');
-    if (shots) await page.screenshot({ path: path.join(OUT, 'welcome.png') });
+    await page.waitForTimeout(1000);
+    if (!(await page.$('.setup'))) errors.push('شاشة التخصيص الأولي لم تظهر للمستخدم الجديد');
+    // المرور بخطوات التخصيص: الثيم الليلي، الأرقام اللاتينية، وضع القائمة، تذكير الصباح، ختمة ٥ صفحات
+    const shot = async (n) => { if (shots) await page.screenshot({ path: path.join(OUT, `setup-${n}.png`) }); };
+    await shot(1);
+    await page.click('[data-act="su-next"]'); await page.waitForTimeout(250); await shot(2);
+    await page.click('[data-act="su-next"]'); await page.waitForTimeout(250);
+    await page.click('[data-act="su-theme"][data-k="midnight"]'); await page.waitForTimeout(200);
+    await page.click('[data-act="su-digits"][data-k="latn"]'); await page.waitForTimeout(200); await shot(3);
+    await page.click('[data-act="su-next"]'); await page.waitForTimeout(250);
+    await page.click('[data-act="su-mode"][data-k="list"]'); await page.waitForTimeout(200); await shot(4);
+    await page.click('[data-act="su-next"]'); await page.waitForTimeout(250);
+    await page.click('[data-act="su-notif"][data-k="morning"]'); await page.waitForTimeout(200); await shot(5);
+    await page.click('[data-act="su-next"]'); await page.waitForTimeout(250);
+    await page.click('[data-act="su-plan"][data-p="5"]'); await page.waitForTimeout(200); await shot(6);
+    await page.click('[data-act="su-next"]'); await page.waitForTimeout(250); await shot(7);
+    await page.click('[data-act="su-finish"]'); await page.waitForTimeout(800);
+    const st0 = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')));
+    const s0 = st0.settings;
+    if (s0.theme !== 'midnight' || s0.digits !== 'latn' || s0.readMode !== 'list' || !s0.notif.morning.on || !st0.khatma || st0.khatma.perDay !== 5 || !st0.app.welcomed) errors.push(`خيارات التخصيص لم تُحفظ: ${JSON.stringify({ t: s0.theme, d: s0.digits, m: s0.readMode, k: st0.khatma })}`);
+    if (!(await page.$('.sky'))) errors.push('لم ينتقل إلى الرئيسية بعد التخصيص');
+    await shot('home');
     await ctx.close();
   }
   // مستخدم من الإصدار ١٫٠: تظهر «ما الجديد» مرة واحدة

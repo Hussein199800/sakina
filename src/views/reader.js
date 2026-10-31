@@ -3,7 +3,7 @@ import { state, save, doneOf } from '../store.js';
 import { icon } from '../icons.js';
 import { num, esc } from '../text.js';
 import { CATEGORY_BY_ID } from '../data/adhkar.js';
-import { itemsOf, countOnce, resetCat, catProgress } from '../services.js';
+import { itemsOf, countOnce, resetCat, catProgress, rescheduleNotifications } from '../services.js';
 import { ring, refresh } from './common.js';
 import { toolsRow } from './dhikr.js';
 import { tapFeedback, confirmSheet, toast, dhikrText, applyTheme } from '../ui.js';
@@ -162,6 +162,7 @@ function tap(root, i, scope) {
   counter.classList.add('done');
   (scope.querySelector('.focus-card') || scope).classList.add('done');
   if (res.catDone) {
+    rescheduleNotifications(); // لا تظهر فقاعة اليوم بعد إتمام الأذكار
     clearTimeout(advanceTimer);
     advanceTimer = setTimeout(() => {
       review = false;
