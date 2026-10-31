@@ -26,7 +26,7 @@ function quranTile() {
       <span class="tq-ic">${icon('quran')}</span>
       <span class="tq-txt"><span class="eyebrow">${icon('flag')} وردك من القرآن</span>
         <b>${done >= target ? 'أتممت ورد اليوم ✓' : `الصفحات ${num(r.from)}–${num(r.to)}`}</b>
-        ${bar(khatmaProgress(k))}<small>${num(Math.round(khatmaProgress(k) * 100))}٪ من الختمة</small></span>
+        ${bar(khatmaProgress(k))}<small>${pct(khatmaProgress(k))} من الختمة</small></span>
       ${icon('chevron')}
     </button>`;
   }
@@ -40,6 +40,9 @@ function quranTile() {
 }
 
 let timer;
+
+/** اختصار النص على حدود الكلمات حتى لا تنفصل الحركات عن حروفها */
+const shorten = (t, words) => { const w = t.split(' '); return w.length > words ? `${w.slice(0, words).join(' ').replace(/[،,]$/, '')}…` : t; };
 
 function sky(period) {
   const stars = period === 'night' || period === 'fajr'
@@ -116,13 +119,13 @@ function bento() {
     <article class="tile tile-ayah span2">
       <span class="eyebrow">${icon('book')} آية اليوم</span>
       <p class="quran">﴿${dhikrText(ayah)}﴾</p>
-      <div class="tile-foot"><small>سورة ${ayahRef}</small>${toolsRow('data-key="ayah-today"')}</div>
+      <div class="tile-foot"><small>سورة ${num(ayahRef)}</small>${toolsRow('data-key="ayah-today"')}</div>
     </article>
 
     <button class="tile tile-mini tone-teal" data-act="go" data-to="#/tasbih">
       <span class="mini-ic">${icon('beads')}</span>
       <b>المسبحة</b>
-      <small>${esc(tb.t.length > 22 ? `${tb.t.slice(0, 22)}…` : tb.t)}</small>
+      <small>${esc(dhikrText(shorten(tb.t, 3)))}</small>
       <span class="mini-num">${num(h.t)} <small>اليوم</small></span>
     </button>
     <button class="tile tile-mini tone-amber" data-act="go" data-to="#/names">
@@ -135,11 +138,11 @@ function bento() {
     <article class="tile tile-hadith span2">
       <span class="eyebrow">${icon('sparkle')} حديث اليوم</span>
       <p class="hadith">«${dhikrText(hadith)}»</p>
-      <div class="tile-foot"><small>${hadithRef}</small>${toolsRow('data-key="hadith-today"')}</div>
+      <div class="tile-foot"><small>${num(hadithRef)}</small>${toolsRow('data-key="hadith-today"')}</div>
     </article>
 
     <button class="tile tile-streak span2" data-act="go" data-to="#/journal">
-      <div><span class="eyebrow">${icon('flame')} أيام الالتزام</span><b class="streak-num">${num(streak())}</b><small>يوماً متتالياً</small></div>
+      <div><span class="eyebrow">${icon('flame')} أيام الالتزام</span><b class="streak-num">${num(streak())}</b><small>${streak() === 1 ? 'يوم التزام' : 'أيام التزام متتالية'}</small></div>
       <div class="week-stars">${week.map((d) => `<span class="ws ${d.rec.m && d.rec.e ? 'full' : d.rec.m || d.rec.e ? 'half' : ''} ${d.isToday ? 'today' : ''}">${icon('star')}<small>${WEEKDAY_LETTERS[d.date.getDay()]}</small></span>`).join('')}</div>
     </button>
   </section>`;
@@ -200,7 +203,7 @@ function moodSheet(f) {
     <div class="mood-block">
       <span class="eyebrow">${icon('book')} آية تواسيك</span>
       <p class="quran">${dhikrText(f.ayah)}</p>
-      <div class="tile-foot"><small>${f.ayahRef}</small>${toolsRow(`data-key="mood-ayah-${f.id}"`)}</div>
+      <div class="tile-foot"><small>${num(f.ayahRef)}</small>${toolsRow(`data-key="mood-ayah-${f.id}"`)}</div>
     </div>
     <div class="mood-block">
       <span class="eyebrow">${icon('hands')} دعاء مأثور</span>
@@ -209,7 +212,7 @@ function moodSheet(f) {
         <button class="counter-btn" data-mood-tap aria-label="عدّ">
           ${ring(0, 76, 6)}<b data-left>${num(left)}</b>
         </button>
-        <div><small>${f.duaRef}</small><p class="muted" data-hint>اضغط على العداد مع كل تكرار</p></div>
+        <div><small>${num(f.duaRef)}</small><p class="muted" data-hint>اضغط على العداد مع كل تكرار</p></div>
       </div>
       ${toolsRow(`data-key="mood-dua-${f.id}"`)}
     </div>

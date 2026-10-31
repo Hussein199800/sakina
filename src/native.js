@@ -1,5 +1,5 @@
 // طبقة موحّدة بين الويب وأندرويد (Capacitor): اهتزاز، مشاركة، نسخ، موقع، تنبيهات، شريط الحالة
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -10,6 +10,37 @@ import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 
 export const isNative = Capacitor.isNativePlatform();
+const isAndroid = isNative && Capacitor.getPlatform() === 'android';
+
+// ---------- الفقاعة العائمة فوق التطبيقات (أندرويد) ----------
+const Overlay = registerPlugin('SakinaOverlay');
+export const overlaySupported = isAndroid;
+
+export async function overlayGranted() {
+  if (!overlaySupported) return false;
+  try { return !!(await Overlay.status()).granted; } catch (e) { return false; }
+}
+export async function openOverlaySettings() { if (overlaySupported) await Overlay.openSettings().catch(() => {}); }
+/** @param {Array<{id:number, at:Date, title:string, body:string, route:string}>} items */
+export async function scheduleOverlays(items) {
+  if (!overlaySupported) return;
+  try { await Overlay.schedule({ items: items.map((i) => ({ ...i, at: i.at.getTime() })) }); } catch (e) { /* غير متاح */ }
+}
+export async function showOverlayNow(title, body, route) {
+  if (!overlaySupported) return false;
+  try { await Overlay.showNow({ title, body, route }); return true; } catch (e) { return false; }
+}
+
+/** روابط sakina://open/... من الفقاعة: تُحوَّل إلى مسار داخل التطبيق */
+export function onDeepLink(cb) {
+  if (!isNative) return;
+  const handle = (url) => {
+    const m = /^sakina:\/\/open(\/[^?#]*)?/.exec(url || '');
+    if (m) cb(`#${m[1] || '/home'}`);
+  };
+  App.addListener('appUrlOpen', (e) => handle(e && e.url));
+  App.getLaunchUrl().then((r) => handle(r && r.url)).catch(() => {});
+}
 export { App };
 
 export function vibrate(strong = false) {
@@ -147,12 +178,16 @@ export async function scheduleAll(list) {
   if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
   if (!list.length) return;
   await LocalNotifications.createChannel({ id: 'sakina', name: 'تذكيرات سكينة', importance: 4, visibility: 1, vibration: true }).catch(() => {});
+  // لكل صوت أذان قناة خاصة، لأن صوت القناة في أندرويد يُحدَّد عند إنشائها ولا يتغيّر بعدها
+  for (const ch of new Set(list.map((n) => n.channel).filter(Boolean))) {
+    await LocalNotifications.createChannel({ id: ch, name: list.find((n) => n.channel === ch).channelName || 'الأذان', importance: 5, visibility: 1, vibration: true, sound: `${ch}.mp3` }).catch(() => {});
+  }
   await LocalNotifications.schedule({
     notifications: list.map((n) => ({
       id: n.id,
       title: n.title,
       body: n.body,
-      channelId: 'sakina',
+      channelId: n.channel || 'sakina',
       smallIcon: 'ic_stat_sakina',
       extra: n.route ? { route: n.route } : undefined,
       schedule: n.at

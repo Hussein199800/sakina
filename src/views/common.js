@@ -1,5 +1,5 @@
 // عناصر عرض مشتركة بين الشاشات
-import { num, esc } from '../text.js';
+import { num, esc, fmtPct } from '../text.js';
 import { icon } from '../icons.js';
 import { hmInTz } from '../dates.js';
 import { location as place } from '../services.js';
@@ -13,6 +13,9 @@ export function fmtTime(date, tz = place().tz) {
   const h12 = h % 12 || 12;
   return `${num(h12)}:${num(String(min).padStart(2, '0'))} ${h < 12 ? 'ص' : 'م'}`;
 }
+
+/** تاريخ قصير (٣١/١٠/٢٠٢٦) بنظام الأرقام المختار */
+export const fmtDate = (d) => num(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`);
 
 export function fmtCountdown(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -33,7 +36,7 @@ export function ring(frac, size = 64, stroke = 5, cls = '') {
 }
 
 export const bar = (frac) => `<span class="bar"><i style="width:${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%"></i></span>`;
-export const pct = (frac) => `${num(Math.round(frac * 100))}٪`;
+export const pct = (frac) => fmtPct(frac);
 
 /** اختيار عنصر يومي ثابت طوال اليوم */
 export function daily(list, salt = 0) {

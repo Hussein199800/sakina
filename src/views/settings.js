@@ -6,6 +6,7 @@ import { CITIES } from '../data/cities.js';
 import { METHODS } from '../prayer.js';
 import { location, deviceTz, rescheduleNotifications } from '../services.js';
 import { fullHead, refresh } from './common.js';
+import { restart as restartSetup } from './setup.js';
 import { THEMES, openSheet, confirmSheet, toast } from '../ui.js';
 import { getPosition, saveTextFile } from '../native.js';
 
@@ -46,7 +47,7 @@ export function render() {
       ${row('volume', 'صوت النقر', 'نقرة ناعمة مع كل تسبيحة', sw(s.sound, 'set-toggle', 'data-k="sound"'))}
       ${row('vibrate', 'الاهتزاز', 'اهتزاز خفيف عند العدّ', sw(s.haptic, 'set-toggle', 'data-k="haptic"'))}
       <div class="set-row"><span class="set-ic">${icon('list')}</span><div class="set-txt"><b>شكل الأرقام</b></div>
-        <div class="seg sm">${[['arab', '١٢٣'], ['latn', '123']].map(([k, l]) => `<button class="seg-btn ${s.digits === k ? 'on' : ''}" data-act="set-digits" data-k="${k}">${l}</button>`).join('')}</div></div>
+        <div class="seg sm">${[['arab', '١٢٣'], ['latn', '123']].map(([k, l]) => `<button class="seg-btn ${s.digits === k ? 'on' : ''}" data-act="set-digits" data-k="${k}" data-digit-sample>${l}</button>`).join('')}</div></div>
     </section>
 
     <section class="card set-card">
@@ -78,6 +79,7 @@ export function render() {
 
     <section class="card set-card">
       <h2 class="set-title">${icon('download')} البيانات</h2>
+      <button class="set-row link" data-act="setup-again"><span class="set-ic">${icon('sparkle')}</span><div class="set-txt"><b>إعادة التخصيص الأولي</b><small>خطوات الموقع والمظهر والقراءة والتذكيرات</small></div>${icon('chevron')}</button>
       <p class="muted small">كل بياناتك محفوظة على جهازك فقط، ولا يُرسَل شيء إلى أي خادم. احفظ نسخة احتياطية قبل أي تحديث، فإن اضطررت لحذف التطبيق وإعادة تثبيته استرجعت منها كل شيء.</p>
       <div class="data-btns">
         <button class="btn btn-soft" data-act="data-export">${icon('download')} تصدير نسخة</button>
@@ -180,6 +182,7 @@ export const actions = {
   'set-toggle': (el) => { const k = el.dataset.k; state.settings[k] = !state.settings[k]; save(); refresh(); },
   'set-digits': (el) => { state.settings.digits = el.dataset.k; save(); document.dispatchEvent(new Event('app:theme')); },
   'set-city': () => cityPicker(),
+  'setup-again': () => { restartSetup(); document.location.hash = '#/setup'; },
   'set-autoupd': () => { state.app.autoUpdate = !state.app.autoUpdate; save(); refresh(); },
   'data-export': async () => {
     flush();

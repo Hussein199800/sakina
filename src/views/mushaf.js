@@ -1,7 +1,7 @@
 // قارئ المصحف: صفحة صفحة على تقسيم مصحف المدينة، مع السحب والعلامات وتقدّم الختمة
 import { state, save } from '../store.js';
 import { icon } from '../icons.js';
-import { num } from '../text.js';
+import { num, parseNum } from '../text.js';
 import { SURAS, TOTAL_PAGES, JUZ } from '../data/quran-meta.js';
 import { loadText, pageRange, refOf, suraOf, suraName, pageOf, juzOf, splitBasmala, ayahOnly } from '../quran.js';
 import { pageRead, todayRange, readToday } from '../khatma.js';
@@ -185,12 +185,12 @@ export function unmount() { rootRef = null; }
 
 function jumpSheet() {
   openSheet(`<h3 class="sheet-title">انتقل إلى</h3>
-    <div class="field"><span>رقم الصفحة (١–٦٠٤)</span>
-      <div class="stepper"><input id="m-page" type="number" min="1" max="604" value="${page}" inputmode="numeric"><button class="btn btn-primary" data-goto>${icon('chevron')} انتقل</button></div></div>
+    <div class="field"><span>رقم الصفحة (${num(1)}–${num(604)})</span>
+      <div class="stepper"><input id="m-page" type="text" inputmode="numeric" value="${num(page)}" aria-label="رقم الصفحة"><button class="btn btn-primary" data-goto>${icon('chevron')} انتقل</button></div></div>
     <div class="field"><span>الجزء</span><div class="juz-chips">${JUZ.map((st, j) => `<button class="chip" data-p="${pageOf(st)}">${num(j + 1)}</button>`).join('')}</div></div>`, {
     onMount: (body, close) => {
       const goto = (p) => { close(); page = Math.min(604, Math.max(1, p)); highlight = -1; show(rootRef); };
-      body.querySelector('[data-goto]').addEventListener('click', () => goto(parseInt(body.querySelector('#m-page').value, 10) || 1));
+      body.querySelector('[data-goto]').addEventListener('click', () => goto(Math.round(parseNum(body.querySelector('#m-page').value)) || 1));
       body.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => goto(+b.dataset.p)));
     },
   });

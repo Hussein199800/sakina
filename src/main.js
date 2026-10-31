@@ -1,11 +1,12 @@
 import { state, flush, today } from './store.js';
-import { applyTheme, hasSheet, closeSheet, closeAllSheets } from './ui.js';
+import { applyTheme, hasSheet, closeSheet, closeAllSheets, toast } from './ui.js';
 import { setDigits } from './text.js';
 import { icon } from './icons.js';
-import { App, isNative, onNotificationTap } from './native.js';
+import { App, isNative, onNotificationTap, onDeepLink, overlayGranted } from './native.js';
 import { rescheduleNotifications } from './services.js';
 import { state as appState, hadData, save } from './store.js';
 import { checkForUpdate, updateAvailable } from './updates.js';
+import { VERSION } from './version.js';
 import * as home from './views/home.js';
 import * as library from './views/library.js';
 import * as reader from './views/reader.js';
@@ -18,7 +19,9 @@ import * as quran from './views/quran.js';
 import * as mushaf from './views/mushaf.js';
 import * as more from './views/more.js';
 import * as reminders from './views/reminders.js';
-import { welcome } from './views/welcome.js';
+import * as zakat from './views/zakat.js';
+import * as group from './views/group.js';
+import * as setup from './views/setup.js';
 import { actions as commonActions } from './views/common.js';
 import { actions as dhikrActions } from './views/dhikr.js';
 
@@ -29,7 +32,7 @@ const TABS = [
   { id: 'tasbih', label: 'المسبحة', icon: 'beads' },
   { id: 'more', label: 'المزيد', icon: 'grid' },
 ];
-const ROUTES = { home, quran, mushaf, library, read: reader, tasbih, more, journal, reminders, settings, qibla, names, whatsnew: more.whatsnew };
+const ROUTES = { setup, home, quran, mushaf, group, library, read: reader, tasbih, more, journal, reminders, settings, qibla, names, zakat, whatsnew: more.whatsnew };
 const ACTIONS = Object.assign({}, commonActions, dhikrActions, ...Object.values(ROUTES).map((v) => v.actions || {}));
 const TAB_IDS = TABS.map((t) => t.id);
 
@@ -92,7 +95,16 @@ if (isNative) {
     if (name !== 'home') { location.hash = '#/home'; return; }
     App.exitApp();
   });
-  App.addListener('resume', () => { render(true); rescheduleNotifications(); });
+  App.addListener('resume', async () => {
+    // العودة من صفحة إذن الفقاعة: تُفعَّل تلقائياً إن مُنح الإذن
+    if (appState.app.overlayPending) {
+      appState.app.overlayPending = false;
+      if (await overlayGranted()) { appState.settings.overlay = true; toast('تم تفعيل الفقاعة العائمة', 'bubble'); }
+      save();
+    }
+    render(true);
+    rescheduleNotifications();
+  });
   App.addListener('pause', flush);
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); else render(true); });
@@ -104,14 +116,18 @@ if (!location.hash) history.replaceState(null, '', '#/home');
 render();
 rescheduleNotifications();
 onNotificationTap((route) => { location.hash = route; });
+onDeepLink((route) => { location.hash = route; });
 
 // أول تشغيل: شاشة ترحيب لتحديد الموقع؛ وبعد كل تحديث: «ما الجديد» مرة واحدة
 if (!hadData && !appState.app.welcomed) {
-  appState.app.lastSeenVersion = '';
-  setTimeout(() => welcome(() => more.maybeShowWhatsNew(false)), 500);
+  // تثبيت جديد: شاشة التخصيص الأولي، ولا تظهر «ما الجديد»
+  appState.app.lastSeenVersion = VERSION;
+  save();
+  location.hash = '#/setup';
 } else {
   if (!appState.app.welcomed) { appState.app.welcomed = true; save(); }
-  setTimeout(() => more.maybeShowWhatsNew(true), 700);
+  // لا تغطّي «ما الجديد» صفحةً فُتحت من إشعار أو من الفقاعة؛ تظهر على الرئيسية فقط (أو في التشغيل التالي)
+  setTimeout(() => { if (/^#\/home$/.test(location.hash)) more.maybeShowWhatsNew(true); }, 700);
 }
 // التحقق من التحديثات مرة يومياً في الخلفية
 setTimeout(() => checkForUpdate(false).then((r) => {

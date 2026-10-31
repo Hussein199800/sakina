@@ -1,7 +1,7 @@
 // تبويب القرآن الكريم: متابعة القراءة، الختمة، الفهرس (السور والأجزاء والعلامات)، البحث
 import { state, save } from '../store.js';
 import { icon } from '../icons.js';
-import { num, esc } from '../text.js';
+import { num, esc, parseNum, pagesLabel, daysLabel } from '../text.js';
 import { SURAS, JUZ, PAGES } from '../data/quran-meta.js';
 import { suraOf, pageOf, juzOf, refOf, suraName, searchQuran, loadText, ayahOnly } from '../quran.js';
 import { PLANS, startKhatma, stopKhatma, todayRange, readToday, daysLeft, progress } from '../khatma.js';
@@ -10,6 +10,7 @@ import { openSheet, toast, confirmSheet } from '../ui.js';
 import { rescheduleNotifications } from '../services.js';
 import { ensureNotifyPermission, notificationsSupported } from '../native.js';
 import { GREG_MONTHS } from '../dates.js';
+import { timeButton, pickTime, fmtClock } from './pickers.js';
 
 let tab = 'suras';
 let query = '';
@@ -31,7 +32,7 @@ function khatmaCard() {
   if (!k) {
     return `<section class="card khatma-card empty-k">
       <div class="kc-head"><span class="kc-ic">${icon('flag')}</span><div><b>ختمة جديدة</b><small>${state.khatmaDone ? `أتممت ${num(state.khatmaDone)} ختمة، تقبّل الله منك` : 'اقرأ وردك يومياً حتى تختم القرآن'}</small></div></div>
-      <button class="btn btn-primary wide" data-act="k-new">${icon('plus')} ابدأ ختمة</button>
+      <div class="row-btns"><button class="btn btn-primary" data-act="k-new">${icon('plus')} ختمة فردية</button><button class="btn btn-soft" data-act="go" data-to="#/group">${icon('flag')} ختمة جماعية</button></div>
     </section>`;
   }
   const r = todayRange(k);
@@ -44,14 +45,15 @@ function khatmaCard() {
       <div class="kc-info">
         <span class="eyebrow">${icon('flag')} ختمتي</span>
         <b>ورد اليوم: الصفحات ${num(r.from)}–${num(r.to)}</b>
-        <small>${done >= target ? 'أتممت ورد اليوم، بارك الله فيك' : `قرأت ${num(done)} من ${num(target)} صفحات اليوم`}</small>
-        <small class="muted">بقي ${num(daysLeft(k))} يوماً تقريباً على الختم</small>
+        <small>${done >= target ? 'أتممت ورد اليوم، بارك الله فيك' : `قرأت ${num(done)} من ${pagesLabel(target)} اليوم`}</small>
+        <small class="muted">بقي ${daysLabel(daysLeft(k))} تقريباً على الختم</small>
       </div>
     </div>
     <div class="row-btns">
       <button class="btn btn-primary" data-act="go" data-to="#/mushaf/${Math.min(604, k.page)}">${icon('book')} ${done >= target ? 'اقرأ المزيد' : 'اقرأ وردك'}</button>
       <button class="btn btn-ghost" data-act="k-edit">${icon('settings')} الخطة</button>
     </div>
+    <button class="link-row" data-act="go" data-to="#/group">${icon('flag')} الختمة الجماعية مع أهلك وأصحابك ${icon('chevron')}</button>
   </section>`;
 }
 
@@ -147,13 +149,13 @@ export function khatmaSheet() {
   const last = state.quran.lastPage;
   openSheet(`<h3 class="sheet-title">${k ? 'خطة الختمة' : 'ختمة جديدة'}</h3>
     <div class="field"><span>كم صفحة تقرأ يومياً؟</span>
-      <div class="plan-grid">${PLANS.map((p) => `<button class="plan ${p.perDay === perDay ? 'on' : ''}" data-per="${p.perDay}"><b>${p.label}</b><small>${num(Math.ceil(604 / p.perDay))} يوماً</small></button>`).join('')}</div>
-      <div class="stepper" style="margin-top:10px"><button class="icon-btn" data-step="-1" aria-label="إنقاص">${icon('minus')}</button><input id="k-per" type="number" min="1" max="100" value="${perDay}" inputmode="numeric"><button class="icon-btn" data-step="1" aria-label="زيادة">${icon('plus')}</button><span class="muted">صفحة يومياً</span></div>
+      <div class="plan-grid">${PLANS.map((p) => `<button class="plan ${p.perDay === perDay ? 'on' : ''}" data-per="${p.perDay}"><b>${num(p.label)}</b><small>${daysLabel(Math.ceil(604 / p.perDay))}</small></button>`).join('')}</div>
+      <div class="stepper" style="margin-top:10px"><button class="icon-btn" data-step="-1" aria-label="إنقاص">${icon('minus')}</button><input id="k-per" type="text" inputmode="numeric" value="${num(perDay)}" aria-label="عدد الصفحات يومياً"><button class="icon-btn" data-step="1" aria-label="زيادة">${icon('plus')}</button><span class="muted">صفحة يومياً</span></div>
     </div>
     ${k ? '' : `<div class="field"><span>من أين تبدأ؟</span>
       <div class="seg"><button class="seg-btn on" data-from="1">من الفاتحة</button>${last > 1 ? `<button class="seg-btn" data-from="${last}">من الصفحة ${num(last)}</button>` : ''}</div></div>`}
     <div class="set-row"><span class="set-ic">${icon('bell')}</span><div class="set-txt"><b>تذكير يومي بالورد</b><small>${notificationsSupported ? 'إشعار في الوقت الذي تختاره' : 'متاح في تطبيق أندرويد'}</small></div>
-      <input type="time" class="time-in" id="k-time" value="${k ? k.time : '20:00'}"><button class="switch ${!k || k.remind ? 'on' : ''}" role="switch" aria-checked="${!k || k.remind}" id="k-remind"><i></i></button></div>
+      ${timeButton(k ? k.time : '20:00', 'id="k-time"')}<button class="switch ${!k || k.remind ? 'on' : ''}" role="switch" aria-checked="${!k || k.remind}" id="k-remind"><i></i></button></div>
     <p class="note" data-k-end></p>
     <div class="row-btns"><button class="btn btn-primary" data-k-save>${icon('check')} ${k ? 'حفظ' : 'ابدأ الختمة'}</button>
       ${k ? `<button class="btn btn-danger-soft" data-k-stop>${icon('trash')} إنهاء الختمة</button>` : '<button class="btn btn-ghost" data-close>إلغاء</button>'}</div>`, {
@@ -161,13 +163,19 @@ export function khatmaSheet() {
       const per = body.querySelector('#k-per');
       const end = body.querySelector('[data-k-end]');
       const upd = () => {
-        perDay = Math.max(1, Math.min(100, parseInt(per.value, 10) || 1));
+        perDay = Math.max(1, Math.min(100, Math.round(parseNum(per.value)) || 1));
         body.querySelectorAll('[data-per]').forEach((b) => b.classList.toggle('on', +b.dataset.per === perDay));
-        end.innerHTML = `${icon('calendar')} ستختم بإذن الله خلال ${num(Math.ceil((604 - from + 1) / perDay))} يوماً تقريباً، في ${endDate(perDay, from)}.`;
+        end.innerHTML = `${icon('calendar')} ستختم بإذن الله خلال ${daysLabel(Math.ceil((604 - from + 1) / perDay))} تقريباً، في ${endDate(perDay, from)}.`;
       };
-      body.querySelectorAll('[data-per]').forEach((b) => b.addEventListener('click', () => { per.value = b.dataset.per; upd(); }));
-      body.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => { per.value = (parseInt(per.value, 10) || 1) + +b.dataset.step; upd(); }));
+      body.querySelectorAll('[data-per]').forEach((b) => b.addEventListener('click', () => { per.value = num(b.dataset.per); upd(); }));
+      body.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => { per.value = num(Math.max(1, Math.min(100, (Math.round(parseNum(per.value)) || 1) + +b.dataset.step))); upd(); }));
       per.addEventListener('input', upd);
+      per.addEventListener('blur', () => { per.value = num(perDay); });
+      const kt = body.querySelector('#k-time');
+      kt.addEventListener('click', async () => {
+        const v = await pickTime(kt.dataset.value, 'وقت تذكير الورد');
+        if (v) { kt.dataset.value = v; kt.querySelector('span').textContent = fmtClock(v); }
+      });
       body.querySelectorAll('[data-from]').forEach((b) => b.addEventListener('click', () => {
         from = +b.dataset.from;
         body.querySelectorAll('[data-from]').forEach((x) => x.classList.toggle('on', x === b));
@@ -179,7 +187,7 @@ export function khatmaSheet() {
       body.querySelector('[data-k-save]').addEventListener('click', async () => {
         const remind = sw.classList.contains('on');
         if (remind && notificationsSupported) await ensureNotifyPermission();
-        const time = body.querySelector('#k-time').value || '20:00';
+        const time = body.querySelector('#k-time').dataset.value || '20:00';
         if (k) Object.assign(k, { perDay, remind, time }); else startKhatma({ perDay, time, remind, fromPage: from });
         save();
         rescheduleNotifications();

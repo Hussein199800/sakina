@@ -5,3 +5,6 @@ tests/e2e/out/
 *.jks
 *.keystore
 keystore.properties
+
+# أصوات الأذان تُنسخ من assets/adhan عند البناء
+android/app/src/main/res/raw/adhan_*

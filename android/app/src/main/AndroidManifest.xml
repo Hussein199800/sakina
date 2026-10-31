@@ -18,7 +18,21 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- روابط داخلية تفتح صفحة محددة (من الفقاعة العائمة): sakina://open/read/morning -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="sakina" android:host="open" />
+            </intent-filter>
         </activity>
+
+        <!-- الفقاعة العائمة: الظهور في الموعد، وإعادة الجدولة بعد إعادة التشغيل أو التحديث -->
+        <receiver android:name=".OverlayReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -32,6 +46,9 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- الفقاعة العائمة فوق التطبيقات لتذكير الأذكار (يمنحه المستخدم يدوياً من الإعدادات) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- الموقع التقريبي يكفي لحساب مواقيت الصلاة واتجاه القبلة -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
