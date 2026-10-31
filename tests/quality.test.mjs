@@ -160,3 +160,26 @@ test('الفقاعة العائمة: مواعيد أسبوع لأذكار الص
   s.overlay = false;
   assert.equal(buildOverlays(now).length, 0);
 });
+
+test('الضغط على كل إشعار يفتح مكان العمل نفسه', async () => {
+  const { routeOf, KAHF_PAGE } = await import('../src/reminders.js');
+  const { SURAS, PAGES } = await import('../src/data/quran-meta.js');
+  assert.equal(KAHF_PAGE, 293, 'سورة الكهف تبدأ في الصفحة ٢٩٣ من مصحف المدينة');
+  assert.ok(PAGES[KAHF_PAGE - 1] <= SURAS[17][2] && SURAS[17][2] < PAGES[KAHF_PAGE]);
+  assert.equal(routeOf({ kind: 'kahf' }), '#/mushaf/293');
+  assert.equal(routeOf({ kind: 'salawat' }), '#/read/salawat');
+  assert.equal(routeOf({ kind: 'white' }), '#/journal');
+  assert.equal(routeOf({ kind: 'custom' }), '#/reminders');
+  state.settings.notif.morning = { on: true, time: '06:30' };
+  state.settings.notif.evening = { on: true, time: '17:00' };
+  state.khatma = { startedAt: '2026-10-31', perDay: 5, time: '20:00', remind: true, page: 42, startPage: 1, log: {} };
+  state.reminders = [{ id: 'k', kind: 'kahf', on: true, time: '10:00', mode: 'day' }];
+  const list = buildNotifications(new Date(2026, 9, 31, 1, 0));
+  const by = (id) => list.find((n) => n.id === id).route;
+  assert.equal(by(1), '#/read/morning');
+  assert.equal(by(2), '#/read/evening');
+  assert.equal(by(5), '#/mushaf/42', 'ورد الختمة يفتح الصفحة التالية للقراءة');
+  assert.equal(list.find((n) => n.id >= 1000).route, '#/mushaf/293');
+  state.khatma = null;
+  state.reminders = [];
+});

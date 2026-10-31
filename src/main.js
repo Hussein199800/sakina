@@ -126,7 +126,8 @@ if (!hadData && !appState.app.welcomed) {
   location.hash = '#/setup';
 } else {
   if (!appState.app.welcomed) { appState.app.welcomed = true; save(); }
-  setTimeout(() => more.maybeShowWhatsNew(true), 700);
+  // لا تغطّي «ما الجديد» صفحةً فُتحت من إشعار أو من الفقاعة؛ تظهر على الرئيسية فقط (أو في التشغيل التالي)
+  setTimeout(() => { if (/^#\/home$/.test(location.hash)) more.maybeShowWhatsNew(true); }, 700);
 }
 // التحقق من التحديثات مرة يومياً في الخلفية
 setTimeout(() => checkForUpdate(false).then((r) => {

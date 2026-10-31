@@ -2,6 +2,7 @@
 // تُحوَّل كل تذكير إلى مواعيد محددة خلال الأيام القادمة، لأن بعضها مرتبط بالتقويم الهجري ولا يتكرر بانتظام.
 import { toHijri, HIJRI_MONTHS, GREG_MONTHS } from './dates.js';
 import { num } from './text.js';
+import { suraStartPage } from './quran.js';
 
 const fmtDay = (iso) => { const [y, m, d] = String(iso || '').split('-').map(Number); return y && m && d ? `${num(d)} ${GREG_MONTHS[m - 1]} ${num(y)}` : ''; };
 
@@ -36,6 +37,21 @@ export const KINDS = {
   },
   custom: { title: 'تذكير مخصّص', icon: 'edit', tone: 'sand', time: '20:00', mode: 'day', desc: 'اكتب ما تريد أن نذكّرك به، واختر وقته وتكراره.' },
 };
+
+/** الصفحة التي يفتحها الضغط على إشعار التذكير: صفحة العمل نفسه لا صفحة الإعدادات */
+export const KAHF_PAGE = suraStartPage(18);
+export function routeOf(r) {
+  switch (r && r.kind) {
+    case 'kahf': return `#/mushaf/${KAHF_PAGE}`;
+    case 'salawat': return '#/read/salawat';
+    case 'qiyam': return '#/quran';
+    case 'duha': return '#/home';
+    case 'monthu':
+    case 'white':
+    case 'occasions': return '#/journal';
+    default: return '#/reminders';
+  }
+}
 
 const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 

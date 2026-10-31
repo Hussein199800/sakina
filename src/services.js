@@ -5,7 +5,7 @@ import { CATEGORY_BY_ID } from './data/adhkar.js';
 import { computeTimes, PRAYERS } from './prayer.js';
 import { ymdInTz, toHijri, addDays, dateKey } from './dates.js';
 import { scheduleAll, notificationsSupported, scheduleOverlays, overlaySupported } from './native.js';
-import { occurrences } from './reminders.js';
+import { occurrences, routeOf } from './reminders.js';
 import { voiceById } from './data/adhan-voices.js';
 import { num, pagesLabel } from './text.js';
 import { todayRange } from './khatma.js';
@@ -169,7 +169,7 @@ export function buildNotifications(now = new Date()) {
   const k = state.khatma;
   if (k && k.remind) {
     const r = todayRange(k);
-    list.push({ id: 5, title: 'وردك من القرآن', body: `${pagesLabel(k.perDay)} اليوم، ابدأ من الصفحة ${num(r.from)}. «اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعاً لأصحابه»`, daily: parseTime(k.time), route: '#/quran' });
+    list.push({ id: 5, title: 'وردك من القرآن', body: `${pagesLabel(k.perDay)} اليوم، ابدأ من الصفحة ${num(r.from)}. «اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعاً لأصحابه»`, daily: parseTime(k.time), route: `#/mushaf/${Math.min(604, k.page)}` });
   }
   // الصلوات أولاً حتى لا يُسقطها الحدّ الأعلى
   if (n.prayers) {
@@ -189,7 +189,7 @@ export function buildNotifications(now = new Date()) {
   // التذكيرات المخصّصة: مواعيد محددة لثلاثة أسابيع، وتُجدَّد عند كل فتح للتطبيق
   let rid = 1000;
   for (const r of state.reminders) {
-    for (const o of occurrences(r, now, 21, state.settings.hijriAdjust).slice(0, 25)) list.push({ id: rid++, title: o.title, body: o.body, at: o.at, route: '#/reminders' });
+    for (const o of occurrences(r, now, 21, state.settings.hijriAdjust).slice(0, 25)) list.push({ id: rid++, title: o.title, body: o.body, at: o.at, route: routeOf(r) });
   }
   return list.slice(0, MAX_SCHEDULED);
 }
