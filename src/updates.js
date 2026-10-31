@@ -24,7 +24,7 @@ export async function checkForUpdate(manual = false) {
     const info = await fetchJson(UPDATE_URL);
     app.lastUpdateCheck = Date.now();
     if (info && Number(info.versionCode) > VERSION_CODE) {
-      app.latest = { code: Number(info.versionCode), name: String(info.versionName || ''), url: String(info.url || ''), notes: Array.isArray(info.notes) ? info.notes.map(String).slice(0, 12) : [] };
+      app.latest = { code: Number(info.versionCode), name: String(info.versionName || ''), url: String(info.url || ''), apk: String(info.apk || ''), notes: Array.isArray(info.notes) ? info.notes.map(String).slice(0, 12) : [] };
       save();
       return 'update';
     }

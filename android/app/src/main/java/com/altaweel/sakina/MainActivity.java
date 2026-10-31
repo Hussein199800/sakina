@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SakinaOverlayPlugin.class);
+        registerPlugin(SakinaUpdaterPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

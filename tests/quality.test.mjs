@@ -183,3 +183,57 @@ test('الضغط على كل إشعار يفتح مكان العمل نفسه', 
   state.khatma = null;
   state.reminders = [];
 });
+
+test('المدن: الأرقام المحفوظة ثابتة، وإدلب ومدن سوريا متاحة بتوقيت دمشق', async () => {
+  const { CITIES, CITIES_SORTED } = await import('../src/data/cities.js');
+  // مدن الإصدارات السابقة لا تتغيّر أرقامها (رقم المدينة هو المحفوظ عند المستخدم)
+  const fixed = { 0: 'مكة المكرمة', 5: 'القاهرة', 15: 'بغداد', 27: 'دمشق', 28: 'حلب', 69: 'سيدني' };
+  for (const [id, name] of Object.entries(fixed)) assert.equal(CITIES[id].name, name);
+  const idlib = CITIES.find((c) => c.name === 'إدلب');
+  assert.ok(idlib && idlib.id >= 70 && idlib.tz === 'Asia/Damascus' && idlib.method === 'mwl');
+  assert.ok(CITIES.filter((c) => c.country === 'سوريا').length >= 40);
+  assert.equal(new Set(CITIES.map((c) => c.name)).size, CITIES.length, 'لا تكرار في أسماء المدن');
+  for (const c of CITIES) assert.ok(Math.abs(c.lat) <= 90 && Math.abs(c.lng) <= 180, c.name);
+  // في العرض: مدن سوريا متجاورة
+  const idx = CITIES_SORTED.map((c) => c.country).reduce((a, c, i) => (c === 'سوريا' ? a.concat(i) : a), []);
+  assert.equal(idx[idx.length - 1] - idx[0] + 1, idx.length);
+  // مواقيت إدلب منطقية (بتوقيت سوريا +٣): الفجر قبل الشروق قبل الظهر
+  const { computeTimes } = await import('../src/prayer.js');
+  const { hmInTz } = await import('../src/dates.js');
+  const t = computeTimes({ y: 2026, m: 10, d: 31 }, idlib, { method: 'mwl' });
+  const h = (k) => hmInTz(t[k], 'Asia/Damascus').h;
+  assert.ok(h('fajr') >= 4 && h('fajr') <= 6 && h('dhuhr') >= 11 && h('dhuhr') <= 13, `فجر ${h('fajr')} ظهر ${h('dhuhr')}`);
+});
+
+test('المساجد القريبة: المسافة والاتجاه وتحويل النتائج ورابط المسار مشياً', async () => {
+  const { distanceM, bearing, directionName, parseResults, buildQuery, routeUrl, fetchMosques } = await import('../src/mosques.js');
+  const me = { lat: 35.9306, lng: 36.6339 };
+  // ٠٫٠٠٩ درجة عرض ≈ ١ كم شمالاً
+  const north = { lat: me.lat + 0.009, lng: me.lng };
+  assert.ok(Math.abs(distanceM(me, north) - 1000) < 5);
+  assert.ok(bearing(me, north) < 0.5 || bearing(me, north) > 359.5);
+  assert.ok(Math.abs(bearing(me, { lat: me.lat, lng: me.lng + 0.01 }) - 90) < 0.5);
+  assert.equal(directionName(10), 'شمال');
+  assert.equal(directionName(135), 'جنوب شرق');
+  assert.equal(directionName(-45), 'شمال غرب');
+  assert.match(buildQuery(me.lat, me.lng, 2000), /around:2000,35\.93060,36\.63390/);
+  const json = { elements: [
+    { type: 'node', id: 1, lat: me.lat + 0.018, lon: me.lng, tags: { name: 'Far', 'name:ar': 'الجامع الكبير' } },
+    { type: 'way', id: 2, center: { lat: me.lat + 0.0045, lon: me.lng }, tags: {} },
+    { type: 'node', id: 3, lat: me.lat + 0.00451, lon: me.lng + 0.00001, tags: { name: 'نفسه' } }, // نقطة المسجد نفسه داخل مبناه
+    { type: 'node', id: 4, tags: {} }, // بلا إحداثيات
+  ] };
+  const list = parseResults(json, me);
+  assert.equal(list.length, 2, 'لا تكرار ولا عناصر بلا إحداثيات');
+  assert.equal(list[0].name, '');
+  assert.ok(list[0].dist < list[1].dist);
+  assert.equal(list[1].name, 'الجامع الكبير', 'الاسم العربي أولاً');
+  assert.equal(routeUrl(list[1]), `https://www.google.com/maps/dir/?api=1&destination=${(me.lat + 0.018).toFixed(6)},${me.lng.toFixed(6)}&travelmode=walking`);
+  // إن تعطّل الخادم الأول يُجرَّب التالي
+  let calls = 0;
+  const fake = (url) => { calls += 1; return calls === 1 ? Promise.reject(new Error('down')) : Promise.resolve({ ok: true, json: () => Promise.resolve(json) }); };
+  const got = await fetchMosques(me, 2000, fake);
+  assert.equal(calls, 2);
+  assert.equal(got.length, 2);
+  await assert.rejects(fetchMosques(me, 2000, () => Promise.reject(new Error('offline'))));
+});

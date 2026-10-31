@@ -31,6 +31,22 @@ export async function showOverlayNow(title, body, route) {
   try { await Overlay.showNow({ title, body, route }); return true; } catch (e) { return false; }
 }
 
+// ---------- التحديث من داخل التطبيق (أندرويد) ----------
+const Updater = registerPlugin('SakinaUpdater');
+export const inAppUpdateSupported = isAndroid;
+export async function canInstallUpdates() {
+  try { return !!(await Updater.canInstall()).granted; } catch (e) { return false; }
+}
+export const openInstallSettings = () => Updater.openInstallSettings().catch(() => {});
+/**
+ * ينزّل التحديث ويفتح المثبّت. onProgress(نسبة ٠–١٠٠ أو -١ إن كان الحجم مجهولاً)
+ * @returns {Promise<void>} يرفض برسالة عربية ورمز (NETWORK, CORRUPT, MISMATCH, NOT_NEWER...)
+ */
+export async function downloadAndInstall(url, onProgress) {
+  const sub = await Updater.addListener('progress', (p) => onProgress && onProgress(p.percent));
+  try { await Updater.downloadAndInstall({ url }); } finally { sub.remove(); }
+}
+
 /** روابط sakina://open/... من الفقاعة: تُحوَّل إلى مسار داخل التطبيق */
 export function onDeepLink(cb) {
   if (!isNative) return;
@@ -178,16 +194,12 @@ export async function scheduleAll(list) {
   if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
   if (!list.length) return;
   await LocalNotifications.createChannel({ id: 'sakina', name: 'تذكيرات سكينة', importance: 4, visibility: 1, vibration: true }).catch(() => {});
-  // لكل صوت أذان قناة خاصة، لأن صوت القناة في أندرويد يُحدَّد عند إنشائها ولا يتغيّر بعدها
-  for (const ch of new Set(list.map((n) => n.channel).filter(Boolean))) {
-    await LocalNotifications.createChannel({ id: ch, name: list.find((n) => n.channel === ch).channelName || 'الأذان', importance: 5, visibility: 1, vibration: true, sound: `${ch}.mp3` }).catch(() => {});
-  }
   await LocalNotifications.schedule({
     notifications: list.map((n) => ({
       id: n.id,
       title: n.title,
       body: n.body,
-      channelId: n.channel || 'sakina',
+      channelId: 'sakina',
       smallIcon: 'ic_stat_sakina',
       extra: n.route ? { route: n.route } : undefined,
       schedule: n.at

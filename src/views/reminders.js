@@ -3,7 +3,6 @@ import { state, save } from '../store.js';
 import { icon } from '../icons.js';
 import { num, esc } from '../text.js';
 import { KINDS, describe, occurrences } from '../reminders.js';
-import { AVAILABLE_VOICES, voiceById } from '../data/adhan-voices.js';
 import { WEEKDAYS, WEEKDAY_LETTERS, dateKey } from '../dates.js';
 import { fullHead, refresh } from './common.js';
 import { timeButton, dateButton, pickTime, pickDate, fmtClock, fmtDay } from './pickers.js';
@@ -48,9 +47,6 @@ export function render() {
       ${overlaySupported ? `<div class="set-row"><span class="set-ic">${icon('bubble')}</span><div class="set-txt"><b>فقاعة عائمة فوق التطبيقات</b><small>دائرة صغيرة تظهر فوق أي تطبيق في وقت أذكار الصباح والمساء والنوم</small></div>${sw(state.settings.overlay, 'rem-overlay')}</div>
       ${state.settings.overlay ? `<button class="link-row" data-act="rem-overlay-test">${icon('sparkle')} جرّب الفقاعة الآن ${icon('chevron')}</button>` : ''}` : ''}
       <div class="set-row"><span class="set-ic">${icon('mosque')}</span><div class="set-txt"><b>دخول وقت الصلاة</b><small>إشعار عند كل أذان</small></div>${sw(state.settings.notif.prayers, 'rem-prayers')}</div>
-      <button class="set-row link" data-act="adhan-pick" ${state.settings.notif.prayers ? '' : 'disabled'}>
-        <span class="set-ic">${icon('volume')}</span><div class="set-txt"><b>صوت الأذان</b><small>${voiceById(state.settings.adhanVoice) ? voiceById(state.settings.adhanVoice).name : 'نغمة الإشعار الافتراضية'}</small></div>${icon('chevron')}
-      </button>
     </section>
 
     <section class="block">
@@ -75,8 +71,6 @@ export function render() {
       </div>
     </section>`;
 }
-
-export function unmount() { stopPreview(); }
 
 export function mount(root) {
   const exact = root.querySelector('[data-exact]');
@@ -169,45 +163,6 @@ function editor(existing, kind) {
   });
 }
 
-let preview = null;
-let previewId = '';
-const stopPreview = () => { if (preview) { preview.pause(); preview = null; } previewId = ''; };
-
-function adhanSheet() {
-  const cur = state.settings.adhanVoice;
-  const opt = (id, name, sub) => `<div class="voice ${(cur || '') === id ? 'on' : ''}">
-      <button class="voice-main" data-voice="${id}"><span class="voice-radio"></span><span class="cat-txt"><b>${name}</b><small>${sub}</small></span></button>
-      ${id ? `<button class="icon-btn sm" data-play="${id}" aria-label="استماع">${icon('volume')}</button>` : ''}
-    </div>`;
-  openSheet(`<h3 class="sheet-title">${icon('volume')} صوت الأذان</h3>
-    <div class="voices">
-      ${opt('', 'نغمة الإشعار الافتراضية', 'صوت إشعارات الهاتف')}
-      ${AVAILABLE_VOICES.map((v) => opt(v.id, v.name, 'أذان كامل')).join('')}
-    </div>
-    ${AVAILABLE_VOICES.length ? '<p class="muted small">يُشغَّل الأذان مع إشعار دخول الوقت، ولا يُسمع إذا كان الهاتف صامتاً.</p>' : `<p class="note">${icon('info')} لم تُضف أصوات أذان إلى هذه النسخة بعد. ستظهر هنا عند إضافتها في تحديث قادم.</p>`}`, {
-    onClose: stopPreview,
-    onMount: (body, close) => {
-      body.querySelectorAll('[data-voice]').forEach((b) => b.addEventListener('click', async () => {
-        stopPreview();
-        state.settings.adhanVoice = b.dataset.voice;
-        save();
-        await rescheduleNotifications();
-        close();
-        toast('تم اختيار صوت الأذان', 'volume');
-        refresh();
-      }));
-      body.querySelectorAll('[data-play]').forEach((b) => b.addEventListener('click', () => {
-        const same = previewId === b.dataset.play;
-        stopPreview();
-        if (same) return;
-        previewId = b.dataset.play;
-        preview = new Audio(`build/adhan/${previewId}.mp3`);
-        preview.play().catch(() => toast('تعذّر تشغيل الصوت', 'info'));
-      }));
-    },
-  });
-}
-
 function addSheet() {
   openSheet(`<h3 class="sheet-title">بماذا نذكّرك؟</h3>
     <div class="pick-list">${Object.entries(KINDS).map(([k, v]) => `
@@ -267,7 +222,6 @@ export const actions = {
     refresh();
   },
   'exact-open': () => openExactAlarmSettings(),
-  'adhan-pick': () => adhanSheet(),
   'rem-base-time': async (el) => {
     const n = state.settings.notif[el.dataset.k];
     const v = await pickTime(n.time);

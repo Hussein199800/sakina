@@ -70,7 +70,56 @@ const RAW = [
   ['لوس أنجلوس', 'أمريكا', 34.0522, -118.2437, 'America/Los_Angeles', 'isna'],
   ['تورنتو', 'كندا', 43.6532, -79.3832, 'America/Toronto', 'isna'],
   ['سيدني', 'أستراليا', -33.8688, 151.2093, 'Australia/Sydney', 'mwl'],
+  // ⚠️ أضف المدن الجديدة في آخر القائمة فقط: رقم المدينة المحفوظ عند المستخدم هو موقعها في القائمة
+  ['إدلب', 'سوريا', 35.9306, 36.6339, 'Asia/Damascus', 'mwl'],
+  ['حماة', 'سوريا', 35.1318, 36.7578, 'Asia/Damascus', 'mwl'],
+  ['اللاذقية', 'سوريا', 35.5317, 35.7900, 'Asia/Damascus', 'mwl'],
+  ['طرطوس', 'سوريا', 34.8890, 35.8866, 'Asia/Damascus', 'mwl'],
+  ['دير الزور', 'سوريا', 35.3359, 40.1408, 'Asia/Damascus', 'mwl'],
+  ['الرقة', 'سوريا', 35.9594, 39.0079, 'Asia/Damascus', 'mwl'],
+  ['الحسكة', 'سوريا', 36.5024, 40.7477, 'Asia/Damascus', 'mwl'],
+  ['القامشلي', 'سوريا', 37.0517, 41.2290, 'Asia/Damascus', 'mwl'],
+  ['درعا', 'سوريا', 32.6189, 36.1021, 'Asia/Damascus', 'mwl'],
+  ['السويداء', 'سوريا', 32.7090, 36.5695, 'Asia/Damascus', 'mwl'],
+  ['القنيطرة', 'سوريا', 33.1258, 35.8243, 'Asia/Damascus', 'mwl'],
+  ['دوما', 'سوريا', 33.5711, 36.4023, 'Asia/Damascus', 'mwl'],
+  ['جبلة', 'سوريا', 35.3610, 35.9256, 'Asia/Damascus', 'mwl'],
+  ['بانياس', 'سوريا', 35.1825, 35.9486, 'Asia/Damascus', 'mwl'],
+  ['صافيتا', 'سوريا', 34.8203, 36.1172, 'Asia/Damascus', 'mwl'],
+  ['السلمية', 'سوريا', 35.0113, 37.0532, 'Asia/Damascus', 'mwl'],
+  ['مصياف', 'سوريا', 35.0653, 36.3420, 'Asia/Damascus', 'mwl'],
+  ['الباب', 'سوريا', 36.3708, 37.5155, 'Asia/Damascus', 'mwl'],
+  ['أعزاز', 'سوريا', 36.5862, 37.0478, 'Asia/Damascus', 'mwl'],
+  ['عفرين', 'سوريا', 36.5119, 36.8692, 'Asia/Damascus', 'mwl'],
+  ['جرابلس', 'سوريا', 36.8175, 38.0114, 'Asia/Damascus', 'mwl'],
+  ['منبج', 'سوريا', 36.5281, 37.9549, 'Asia/Damascus', 'mwl'],
+  ['أريحا', 'سوريا', 35.8130, 36.6080, 'Asia/Damascus', 'mwl'],
+  ['جسر الشغور', 'سوريا', 35.8126, 36.3195, 'Asia/Damascus', 'mwl'],
+  ['سراقب', 'سوريا', 35.8640, 36.8006, 'Asia/Damascus', 'mwl'],
+  ['معرة النعمان', 'سوريا', 35.6484, 36.6710, 'Asia/Damascus', 'mwl'],
+  ['سرمدا', 'سوريا', 36.1790, 36.7140, 'Asia/Damascus', 'mwl'],
+  ['الدانا', 'سوريا', 36.2167, 36.7667, 'Asia/Damascus', 'mwl'],
+  ['حارم', 'سوريا', 36.2081, 36.5197, 'Asia/Damascus', 'mwl'],
+  ['البوكمال', 'سوريا', 34.4500, 40.9186, 'Asia/Damascus', 'mwl'],
+  ['الميادين', 'سوريا', 35.0204, 40.4518, 'Asia/Damascus', 'mwl'],
+  ['تدمر', 'سوريا', 34.5560, 38.2840, 'Asia/Damascus', 'mwl'],
+  ['النبك', 'سوريا', 34.0236, 36.7275, 'Asia/Damascus', 'mwl'],
+  ['يبرود', 'سوريا', 33.9673, 36.6577, 'Asia/Damascus', 'mwl'],
+  ['الزبداني', 'سوريا', 33.7247, 36.0971, 'Asia/Damascus', 'mwl'],
+  ['إزرع', 'سوريا', 32.8569, 36.2506, 'Asia/Damascus', 'mwl'],
+  ['نوى', 'سوريا', 32.8889, 36.0431, 'Asia/Damascus', 'mwl'],
+  ['شهبا', 'سوريا', 32.8540, 36.6290, 'Asia/Damascus', 'mwl'],
+  ['تل أبيض', 'سوريا', 36.6974, 38.9567, 'Asia/Damascus', 'mwl'],
+  ['رأس العين', 'سوريا', 36.8500, 40.0700, 'Asia/Damascus', 'mwl'],
+  ['المالكية', 'سوريا', 37.1767, 42.1383, 'Asia/Damascus', 'mwl'],
+  ['عين العرب', 'سوريا', 36.8906, 38.3541, 'Asia/Damascus', 'mwl'],
+  ['الطبقة', 'سوريا', 35.8378, 38.5480, 'Asia/Damascus', 'mwl'],
 ];
 
 export const CITIES = RAW.map(([name, country, lat, lng, tz, method], i) => ({ id: i, name, country, lat, lng, tz, method }));
+// ترتيب العرض: مدن كل دولة متجاورة بترتيب أول ظهور للدولة (دون تغيير أرقام المدن المحفوظة)
+const countryRank = {};
+CITIES.forEach((c) => { if (!(c.country in countryRank)) countryRank[c.country] = c.id; });
+export const CITIES_SORTED = CITIES.slice().sort((a, b) => countryRank[a.country] - countryRank[b.country] || a.id - b.id);
+
 export const DEFAULT_CITY = CITIES.find((c) => c.name === 'مكة المكرمة');

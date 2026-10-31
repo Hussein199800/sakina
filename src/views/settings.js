@@ -2,7 +2,7 @@
 import { state, save, flush, replaceAll, clearAll } from '../store.js';
 import { icon } from '../icons.js';
 import { num, esc, normalize } from '../text.js';
-import { CITIES } from '../data/cities.js';
+import { CITIES, CITIES_SORTED } from '../data/cities.js';
 import { METHODS } from '../prayer.js';
 import { location, deviceTz, rescheduleNotifications } from '../services.js';
 import { fullHead, refresh } from './common.js';
@@ -132,7 +132,7 @@ export function cityPicker(onDone) {
       const draw = (q) => {
         const nq = normalize(q || '');
         const sel = state.settings.location;
-        list.innerHTML = CITIES.filter((c) => !nq || normalize(`${c.name} ${c.country}`).indexOf(nq) !== -1)
+        list.innerHTML = CITIES_SORTED.filter((c) => !nq || normalize(`${c.name} ${c.country}`).indexOf(nq) !== -1)
           .map((c) => `<button class="city ${sel.type === 'city' && sel.cityId === c.id ? 'on' : ''}" data-city="${c.id}"><b>${c.name}</b><small>${c.country}</small></button>`).join('')
           || '<p class="muted center">لا توجد مدينة بهذا الاسم</p>';
       };

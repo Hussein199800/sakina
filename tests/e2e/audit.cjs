@@ -8,7 +8,7 @@ const server = http.createServer((req, res) => {
   const f = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]).replace(/\/$/, '/index.html'));
   fs.readFile(f, (e, d) => { if (e) { res.writeHead(404); res.end(); return; } res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' }); res.end(d); });
 });
-const ROUTES = ['setup', 'home', 'quran', 'mushaf/3', 'group', 'library', 'read/morning', 'read/salawat', 'read/hamd', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'zakat', 'whatsnew'];
+const ROUTES = ['setup', 'home', 'quran', 'mushaf/3', 'group', 'library', 'read/morning', 'read/salawat', 'read/hamd', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'zakat', 'mosques', 'whatsnew'];
 const problems = [];
 (async () => {
   await new Promise((r) => server.listen(0, r));
@@ -17,7 +17,7 @@ const problems = [];
   for (const digits of ['arab', 'latn']) {
     for (const width of [360, 412]) {
       const ctx = await b.newContext({ viewport: { width, height: 760 }, locale: 'ar' });
-      await ctx.addInitScript(([d, ver]) => localStorage.setItem('sakina.v1', JSON.stringify({ settings: { digits: d, location: { type: 'city', cityId: 5 } }, app: { welcomed: true, lastSeenVersion: ver, autoUpdate: false }, khatma: { startedAt: '2026-10-30', perDay: 5, time: '20:00', remind: true, page: 12, startPage: 1, log: {} }, reminders: [{ id: 'r1', kind: 'white', on: true, time: '21:00', mode: 'eve' }, { id: 'r2', kind: 'custom', on: true, time: '08:15', repeat: 'once', date: '2026-11-20', title: 'موعد' }] })), [digits, VERSION]);
+      await ctx.addInitScript(([d, ver]) => localStorage.setItem('sakina.v1', JSON.stringify({ settings: { digits: d, location: { type: 'city', cityId: 5 } }, app: { welcomed: true, lastSeenVersion: ver, autoUpdate: false }, khatma: { startedAt: '2026-10-30', perDay: 5, time: '20:00', remind: true, page: 12, startPage: 1, log: {} }, mosques: { at: 1761900000000, lat: 35.93, lng: 36.63, radius: 2000, items: [{ id: 'n/1', name: 'الجامع الكبير', lat: 35.933, lng: 36.634, dist: 340, dir: 12 }, { id: 'n/2', name: '', lat: 35.94, lng: 36.62, dist: 1650, dir: 300 }] }, reminders: [{ id: 'r1', kind: 'white', on: true, time: '21:00', mode: 'eve' }, { id: 'r2', kind: 'custom', on: true, time: '08:15', repeat: 'once', date: '2026-11-20', title: 'موعد' }] })), [digits, VERSION]);
       const page = await ctx.newPage();
       for (const r of ROUTES) {
         await page.goto(`${base}#/${r}`); await page.waitForTimeout(r.startsWith('mushaf') ? 900 : 350);
