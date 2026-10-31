@@ -6,7 +6,6 @@ import { computeTimes, PRAYERS } from './prayer.js';
 import { ymdInTz, toHijri, addDays, dateKey } from './dates.js';
 import { scheduleAll, notificationsSupported, scheduleOverlays, overlaySupported } from './native.js';
 import { occurrences, routeOf } from './reminders.js';
-import { voiceById } from './data/adhan-voices.js';
 import { num, pagesLabel } from './text.js';
 import { todayRange } from './khatma.js';
 
@@ -173,14 +172,13 @@ export function buildNotifications(now = new Date()) {
   }
   // الصلوات أولاً حتى لا يُسقطها الحدّ الأعلى
   if (n.prayers) {
-    const voice = voiceById(state.settings.adhanVoice);
     let g = localToday(now);
     for (let day = 0; day < 6; day++) {
       const t = timesFor(g);
       FIVE.forEach((key, i) => {
         if (t[key] > now) {
           const name = PRAYERS.find((p) => p.key === key).name;
-          list.push({ id: 100 + day * 10 + i, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home', channel: voice ? `adhan_${voice.id}` : '', channelName: voice ? `الأذان بصوت ${voice.name}` : '' });
+          list.push({ id: 100 + day * 10 + i, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home' });
         }
       });
       g = addDays(g, 1);

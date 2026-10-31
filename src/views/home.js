@@ -14,6 +14,19 @@ import { registerText, toolsRow } from './dhikr.js';
 import { todayRange, readToday, progress as khatmaProgress } from '../khatma.js';
 import { suraOf, suraName } from '../quran.js';
 import { PAGES } from '../data/quran-meta.js';
+import { fmtDistance } from './mosques.js';
+
+function mosqueTile() {
+  const c = state.mosques;
+  const near = c && c.items && c.items[0];
+  return `<button class="tile tile-mosque span2" data-act="go" data-to="#/mosques">
+    <span class="tq-ic">${icon('mosque')}</span>
+    <span class="tq-txt"><span class="eyebrow">${icon('pin')} المساجد القريبة</span>
+      <b>${near ? esc(near.name || 'مسجد') : 'اعرف المساجد حولك'}</b>
+      <small>${near ? `الأقرب إليك · ${fmtDistance(near.dist)}` : 'رادار ومسار مشياً إلى المسجد'}</small></span>
+    ${icon('chevron')}
+  </button>`;
+}
 
 function quranTile() {
   const k = state.khatma;
@@ -140,6 +153,8 @@ function bento() {
       <p class="hadith">«${dhikrText(hadith)}»</p>
       <div class="tile-foot"><small>${num(hadithRef)}</small>${toolsRow('data-key="hadith-today"')}</div>
     </article>
+
+    ${mosqueTile()}
 
     <button class="tile tile-streak span2" data-act="go" data-to="#/journal">
       <div><span class="eyebrow">${icon('flame')} أيام الالتزام</span><b class="streak-num">${num(streak())}</b><small>${streak() === 1 ? 'يوم التزام' : 'أيام التزام متتالية'}</small></div>

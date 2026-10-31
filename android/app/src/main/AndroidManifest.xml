@@ -49,6 +49,8 @@
     <!-- الفقاعة العائمة فوق التطبيقات لتذكير الأذكار (يمنحه المستخدم يدوياً من الإعدادات) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- تثبيت التحديثات من داخل التطبيق (يمنحه المستخدم مرة واحدة) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- الموقع التقريبي يكفي لحساب مواقيت الصلاة واتجاه القبلة -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

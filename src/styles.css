@@ -687,6 +687,13 @@ button.tile:active { transform: scale(.98); }
 .upd-help li + li { margin-top: 4px; }
 .sm-btn { min-height: 42px; font-size: 13.5px; margin: 6px 0 2px; }
 .upd-help-list { margin: 4px 0 10px; padding-right: 20px; line-height: 1.9; font-size: 14px; }
+.upd-state-box { margin: 6px 0 12px; padding: 12px 14px; border-radius: 16px; background: var(--primary-soft); display: flex; flex-direction: column; gap: 8px; }
+.upd-state-box b { display: flex; align-items: center; gap: 6px; font-size: 14.5px; }
+.upd-state-box p { font-size: 13.5px; line-height: 1.8; color: var(--muted); }
+.upd-state-box.err { background: var(--rose-bg); }
+.upd-state-box.err b { color: var(--rose-fg); }
+.vpn-note { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; line-height: 1.8; color: var(--muted); padding: 2px 2px 10px; }
+.vpn-note .ic { width: 16px; height: 16px; margin-top: 4px; flex: none; color: var(--secondary); }
 .upd-notes { margin: 6px 0 12px; padding-right: 20px; line-height: 1.9; }
 .wn-page { padding-top: 4px; }
 .wn-block { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px; margin-bottom: 14px; }
@@ -733,13 +740,6 @@ button.tile:active { transform: scale(.98); }
 .cd-bg.on { border-color: var(--text); }
 .cd-bg.on span { display: inline-flex; }
 
-/* ============ أصوات الأذان ============ */
-.voices { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
-.voice { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; border-radius: 16px; background: var(--bg); border: 1.5px solid transparent; }
-.voice.on { border-color: var(--primary); background: var(--primary-soft); }
-.voice-main { flex: 1; display: flex; align-items: center; gap: 12px; min-height: 52px; text-align: right; }
-.voice-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--faint); flex: none; }
-.voice.on .voice-radio { border: 6px solid var(--primary); }
 .set-row.link:disabled { opacity: .45; }
 
 /* ============ الختمة الجماعية ============ */
@@ -784,6 +784,32 @@ textarea.plain { font-family: var(--ui) !important; font-size: 16px !important; 
 .z-field.slim { border-top: 0; padding-top: 10px; }
 .z-conv { margin: -4px 2px 8px; color: var(--primary) !important; }
 .z-notes { margin: 4px 0 8px; padding-right: 20px; font-size: 13.5px; line-height: 1.9; color: var(--muted); }
+
+/* ============ المساجد القريبة ============ */
+.tile-mosque { display: flex; align-items: center; gap: 14px; background: linear-gradient(140deg, var(--card) 35%, var(--teal-bg)); }
+.tile-mosque .tq-txt b { font-family: var(--ui); font-size: 16px; }
+.mq-status { display: flex; align-items: center; gap: 14px; }
+.mq-radar-wrap { margin: 16px auto 4px; max-width: 320px; }
+.mq-radar { width: 100%; height: auto; display: block; }
+.mq-face { fill: var(--card); stroke: var(--line); stroke-width: 2; }
+.mq-ring { fill: none; stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.mq-n { fill: #D2475A; font-size: 16px; font-weight: 700; text-anchor: middle; font-family: var(--ui); }
+.mq-me { fill: var(--primary); stroke: var(--card); stroke-width: 3; }
+.mq-dot circle { fill: var(--secondary); stroke: var(--card); stroke-width: 2; cursor: pointer; }
+.mq-dot.near circle { fill: var(--primary); }
+[data-rot] { transition: transform .25s ease-out; }
+.mq-tag { fill: var(--muted); font-size: 10.5px; text-anchor: middle; font-family: var(--ui); }
+.mq-when { margin: 6px 0 10px; }
+.mq-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.mq-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); transition: background .3s; }
+.mq-row.near { border-color: var(--primary-mid); background: var(--primary-soft); }
+.mq-row.flash { background: var(--secondary-soft); }
+.mq-num { width: 30px; height: 30px; border-radius: 10px; background: var(--bg); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--primary); flex: none; }
+.mq-txt { flex: 1; display: flex; flex-direction: column; line-height: 1.45; min-width: 0; }
+.mq-txt b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mq-txt small { font-size: 12.5px; color: var(--muted); }
+.mq-go { min-height: 42px; padding: 0 14px; font-size: 14px; flex: none; }
+.mq-privacy { margin-top: 14px; line-height: 1.8; }
 
 /* ============ التخصيص الأولي ============ */
 .setup { min-height: 100vh; display: flex; flex-direction: column; padding-top: var(--safe-top); }

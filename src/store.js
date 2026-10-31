@@ -23,7 +23,6 @@ export const DEFAULTS = {
       sleep: { on: false, time: '22:30' },
       prayers: false,
     },
-    adhanVoice: '',
     // الفقاعة العائمة فوق التطبيقات عند تذكير الأذكار
     overlay: false,
   },
@@ -87,7 +86,7 @@ export function sanitize(st) {
   }
   s.notif.prayers = !!s.notif.prayers;
   s.overlay = !!s.overlay;
-  if (typeof s.adhanVoice !== 'string') s.adhanVoice = '';
+  delete s.adhanVoice; // أُلغيت ميزة صوت الأذان في الإصدار ١٫٣
   for (const k of ['favorites', 'custom', 'reminders']) if (!Array.isArray(st[k])) st[k] = [];
   if (st.groups !== undefined && !Array.isArray(st.groups)) st.groups = [];
   st.favorites = st.favorites.filter((x) => typeof x === 'string');
@@ -106,6 +105,10 @@ export function sanitize(st) {
   if (k !== null && !(isObj(k) && Number.isInteger(k.page) && k.page >= 1 && k.page <= 604 && Number.isFinite(k.perDay) && k.perDay >= 1)) st.khatma = null;
   else if (k) { if (!isObj(k.log)) k.log = {}; if (!TIME.test(k.time)) k.time = '20:00'; k.startPage = Math.round(clampNum(k.startPage, 1, k.page, 1)); }
   st.khatmaDone = Math.max(0, Math.floor(clampNum(st.khatmaDone, 0, 1e6, 0)));
+  // نتائج المساجد المحفوظة: تُحذف إن كانت تالفة
+  const m = st.mosques;
+  if (m !== undefined && m !== null && !(isObj(m) && Number.isFinite(m.lat) && Number.isFinite(m.lng) && Number.isFinite(m.radius) && Array.isArray(m.items))) st.mosques = null;
+  else if (m) m.items = m.items.filter((x) => isObj(x) && Number.isFinite(x.lat) && Number.isFinite(x.lng) && Number.isFinite(x.dist) && Number.isFinite(x.dir)).map((x) => ({ ...x, name: typeof x.name === 'string' ? x.name : '' }));
   return st;
 }
 

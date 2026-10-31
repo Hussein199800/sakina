@@ -1,14 +1,14 @@
 // تبويب «المزيد»: رحلتي، التذكيرات، أسماء الله، القبلة، الإعدادات، ما الجديد، التحديثات، حول التطبيق
 import { state, save } from '../store.js';
 import { icon } from '../icons.js';
-import { num, esc, daysLabel } from '../text.js';
-import { VERSION, RELEASES_URL } from '../version.js';
+import { num, esc, daysLabel, fmtPct } from '../text.js';
+import { VERSION, RELEASES_URL, APK_URL, VPN_NOTE } from '../version.js';
 import { CHANGELOG } from '../data/changelog.js';
 import { checkForUpdate, updateAvailable } from '../updates.js';
-import { streak, location } from '../services.js';
+import { streak } from '../services.js';
 import { pageHead, fullHead, refresh, fmtDate } from './common.js';
 import { openSheet, toast } from '../ui.js';
-import { shareText, openExternal, getPosition } from '../native.js';
+import { shareText, openExternal, inAppUpdateSupported, canInstallUpdates, openInstallSettings, downloadAndInstall } from '../native.js';
 
 const SHARE_TEXT = 'سكينة: رفيقك الروحي اليومي 🌙\nأذكار الصباح والمساء كاملة بالتشكيل والمصدر، والقرآن الكريم، ومواقيت الصلاة، والمسبحة، وبوصلة القبلة. يعمل بدون إنترنت، مجاني وبلا إعلانات.';
 
@@ -49,12 +49,13 @@ export function render() {
       ${tile('#/names', 'star', 'violet', 'أسماء الله الحسنى', `${num(99)} اسماً ومعانيها`)}
       ${tile('#/qibla', 'compass', 'indigo', 'بوصلة القبلة', 'اتجاه الكعبة المشرّفة')}
       ${tile('#/zakat', 'calculator', 'amber', 'حاسبة الزكاة', 'المال والذهب والفضة')}
-      <button class="more-tile tone-teal" data-act="mosques"><span class="cat-ic">${icon('mosque')}</span><b>المساجد القريبة</b><small>على الخريطة (يحتاج إنترنت)</small></button>
+      ${tile('#/mosques', 'mosque', 'teal', 'المساجد القريبة', 'رادار ومسار مشياً')}
     </div>
     <section class="card set-card">
       ${row('data-act="go" data-to="#/settings"', 'settings', 'الإعدادات', 'الثيم، القراءة، المواقيت، التنبيهات، البيانات')}
       ${row('data-act="go" data-to="#/whatsnew"', 'sparkle', 'ما الجديد', `الإصدار الحالي ${num(VERSION)}`)}
       ${row('data-act="upd-check"', 'refresh', 'التحقق من التحديثات', state.app.lastUpdateCheck ? `آخر تحقق: ${fmtDate(new Date(state.app.lastUpdateCheck))}` : 'لم يتم التحقق بعد', '<span class="upd-state" data-upd-state></span>')}
+      <p class="vpn-note">${icon('info')} ${VPN_NOTE}</p>
       ${row('data-act="app-share"', 'share', 'شارك التطبيق', 'الدال على الخير كفاعله')}
     </section>
     <section class="card about">
@@ -81,23 +82,57 @@ export function updateHelp() {
     <ol>
       <li><b>خذ نسخة احتياطية</b> إن كانت لديك أذكار خاصة أو مفضلة أو ختمة أو تذكيرات أو إعدادات تهمّك.
         <button class="btn btn-soft wide sm-btn" data-act="data-export">${icon('download')} حفظ نسخة احتياطية الآن</button></li>
-      <li>افتح ملف التحديث بعد تنزيله وثبّته؛ في الغالب يُثبَّت فوق النسخة الحالية وتبقى بياناتك كما هي.</li>
+      <li>اضغط «تنزيل وتثبيت»؛ يُنزَّل التحديث داخل سكينة ثم يفتح المثبّت، وتبقى بياناتك كما هي.</li>
       <li>إن ظهرت رسالة مثل «لم يتم تثبيت التطبيق» أو «تعارض مع حزمة موجودة»، أو حدثت مشكلة بعد التحديث: <b>احذف النسخة القديمة من الهاتف ثم ثبّت الجديدة</b>.</li>
       <li>بعد التثبيت افتح <b>المزيد ← الإعدادات ← البيانات ← استيراد نسخة</b> واختر ملف النسخة الاحتياطية لاسترجاع كل شيء.</li>
     </ol>
   </div>`;
 }
 
+// لا نقبل إلا ملفات إصدارات المستودع الرسمي (ويتحقق أندرويد من التوقيع أيضاً)
+const safeApk = (u) => (/^https:\/\/github\.com\/Hussein199800\/sakina\/releases\/(latest\/)?download\//.test(u || '') ? u : APK_URL);
+
 export function showUpdateSheet() {
   const l = state.app.latest;
   if (!l) return;
   openSheet(`<div class="center"><div class="about-logo">${icon('download')}</div>
-    <h3 class="sheet-title">تحديث جديد: الإصدار ${esc(l.name)}</h3></div>
-    ${l.notes.length ? `<ul class="upd-notes">${l.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+    <h3 class="sheet-title">تحديث جديد: الإصدار ${esc(num(l.name))}</h3></div>
+    ${l.notes.length ? `<ul class="upd-notes">${l.notes.map((n) => `<li>${esc(num(n))}</li>`).join('')}</ul>` : ''}
+    <div data-upd-box></div>
     ${updateHelp()}
-    <div class="row-btns"><button class="btn btn-primary" data-dl>${icon('download')} تنزيل التحديث</button><button class="btn btn-ghost" data-close>لاحقاً</button></div>`, {
+    <div class="row-btns"><button class="btn btn-primary" data-dl>${icon('download')} ${inAppUpdateSupported ? 'تنزيل وتثبيت' : 'تنزيل التحديث'}</button><button class="btn btn-ghost" data-close>لاحقاً</button></div>`, {
     cls: 'sheet-tall',
-    onMount: (body, close) => body.querySelector('[data-dl]').addEventListener('click', () => { close(); openExternal(safeUrl(l.url)); }),
+    onMount: (body) => {
+      const box = body.querySelector('[data-upd-box]');
+      const btn = body.querySelector('[data-dl]');
+      const show = (html) => { box.innerHTML = html; };
+      btn.addEventListener('click', async () => {
+        if (!inAppUpdateSupported) { openExternal(safeUrl(l.url)); return; }
+        // أول مرة: يطلب أندرويد السماح لسكينة بتثبيت التطبيقات
+        if (!(await canInstallUpdates())) {
+          show(`<div class="upd-state-box"><b>${icon('shield')} خطوة واحدة قبل التثبيت</b>
+            <p>اسمح لسكينة بتثبيت التحديثات: اضغط «السماح» ثم فعّل الخيار وارجع، واضغط «تنزيل وتثبيت» مرة أخرى.</p>
+            <button class="btn btn-soft wide" data-allow>${icon('settings')} السماح</button></div>`);
+          box.querySelector('[data-allow]').addEventListener('click', () => openInstallSettings());
+          return;
+        }
+        btn.disabled = true;
+        show(`<div class="upd-state-box"><b data-upd-label>جارٍ التنزيل…</b><span class="bar"><i data-upd-bar style="width:0%"></i></span></div>`);
+        const label = box.querySelector('[data-upd-label]');
+        const bar = box.querySelector('[data-upd-bar]');
+        try {
+          await downloadAndInstall(safeApk(l.apk), (p) => {
+            if (p >= 0) { label.textContent = `جارٍ التنزيل… ${fmtPct(p / 100)}`; bar.style.width = `${p}%`; } else label.textContent = 'جارٍ التنزيل…';
+          });
+          label.textContent = 'اكتمل التنزيل، اتبع خطوات المثبّت';
+          bar.style.width = '100%';
+        } catch (e) {
+          const msg = (e && e.message) || 'تعذّر تنزيل التحديث';
+          show(`<div class="upd-state-box err"><b>${icon('info')} ${esc(msg)}</b>${e && e.code === 'NETWORK' ? `<p>${VPN_NOTE}</p>` : ''}</div>`);
+        }
+        btn.disabled = false;
+      });
+    },
   });
 }
 
@@ -108,14 +143,10 @@ export const actions = {
     if (st) st.innerHTML = '<span class="spinner sm"></span>';
     const r = await checkForUpdate(true);
     if (st) st.textContent = '';
-    if (r === 'update') { refresh(); showUpdateSheet(); } else if (r === 'latest') { toast(`أنت على أحدث إصدار (${num(VERSION)})`); refresh(); } else toast('تعذّر التحقق، تأكد من اتصالك بالإنترنت', 'info');
-  },
-  // المساجد القريبة: نفتح الخريطة على موقع المستخدم بحثاً عن «مسجد» (لا يحتاج التطبيق إلى مفتاح خرائط)
-  mosques: async () => {
-    toast('جارٍ تحديد موقعك…', 'location');
-    let p;
-    try { p = await getPosition(); } catch (e) { const l = location(); p = { lat: l.lat, lng: l.lng }; toast(`تعذّر تحديد موقعك، سنبحث قرب ${l.name}`, 'info'); }
-    openExternal(`https://www.google.com/maps/search/${encodeURIComponent('مسجد')}/@${p.lat.toFixed(5)},${p.lng.toFixed(5)},15z`);
+    if (r === 'update') { refresh(); showUpdateSheet(); } else if (r === 'latest') { toast(`أنت على أحدث إصدار (${num(VERSION)})`); refresh(); } else {
+      openSheet(`<div class="center"><div class="about-logo">${icon('info')}</div><h3 class="sheet-title">تعذّر التحقق من التحديثات</h3></div>
+        <p class="sheet-text">تأكد من اتصالك بالإنترنت. ${VPN_NOTE}</p><button class="btn btn-primary wide" data-close>حسناً</button>`);
+    }
   },
   'app-share': async () => {
     const r = await shareText(SHARE_TEXT);
