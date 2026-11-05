@@ -157,8 +157,7 @@ test('مداخل السور: المكي والمدني والمقاصد بنص �
 });
 
 test('مداخل السور: الآيات المستشهد بها مطابقة، واسم السورة وارد في الآية المذكورة', () => {
-  const batch1 = [...Array.from({ length: 9 }, (_, i) => i + 1), ...Array.from({ length: 37 }, (_, i) => i + 78)];
-  for (const s of batch1) assert.ok(NOTES[s] && NOTES[s].name && NOTES[s].name.w, `السورة ${s}: لا يوجد سبب تسمية`);
+  for (let s = 1; s <= 114; s++) assert.ok(NOTES[s] && NOTES[s].name && NOTES[s].name.w, `السورة ${s}: لا يوجد سبب تسمية`);
   for (const [k, n] of Object.entries(NOTES)) {
     const s = +k;
     const texts = [n.name.w, n.sabab && n.sabab.t, n.when && n.when.t].filter(Boolean);
