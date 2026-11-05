@@ -234,7 +234,8 @@ function moodSheet(f) {
     <div class="mood-message">
       <span class="eyebrow">${icon('leaf')} رسالة سكينة وتدبّر</span>
       <p>${f.message}</p>
-    </div>`, {
+    </div>
+    ${f.cat && CATEGORY_BY_ID[f.cat] ? `<button class="btn btn-soft wide" data-act="go" data-to="#/read/${f.cat}">${icon(CATEGORY_BY_ID[f.cat].icon)} أذكار ${CATEGORY_BY_ID[f.cat].title}</button>` : ''}`, {
     cls: 'sheet-tall',
     onMount: (body) => {
       const btn = body.querySelector('[data-mood-tap]');

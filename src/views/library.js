@@ -32,6 +32,10 @@ function sections() {
       <div class="cat-rows">${group('moments').map((c) => catCard(c)).join('')}</div>
     </section>
     <section class="block">
+      <div class="block-head"><h2>أذكار المواقف والأحوال</h2></div>
+      <div class="cat-rows">${group('situations').map((c) => catCard(c)).join('')}</div>
+    </section>
+    <section class="block">
       <div class="block-head"><h2>الأوراد</h2></div>
       <div class="cat-grid even">${group('wird').map((c) => catCard(c, true)).join('')}</div>
     </section>

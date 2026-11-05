@@ -620,6 +620,31 @@ button.tile:active { transform: scale(.98); }
 .sura-page { font-size: 13px; color: var(--faint); }
 .mark-row { padding: 6px 8px 6px 14px; }
 .mark-go { flex: 1; display: flex; align-items: center; gap: 12px; text-align: right; min-height: 50px; }
+.si-gate { display: flex; align-items: center; gap: 14px; width: 100%; text-align: right; margin: 12px 0; }
+.si-gate .kc-ic { flex: none; }
+.si-gate > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; line-height: 1.5; }
+.si-gate small { color: var(--muted); font-size: 13px; }
+.sura-info-btn { flex: none; color: var(--secondary); }
+.si-page { padding-bottom: 24px; }
+.si-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.si-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.si-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; min-height: 62px; text-align: right; }
+.si-chev { color: var(--faint); transition: transform .2s; display: inline-flex; }
+.si-card.open .si-chev { transform: rotate(180deg); }
+.si-body { padding: 4px 14px 14px; border-top: 1px solid var(--line); }
+.si-sec { display: flex; gap: 10px; padding: 12px 0; line-height: 1.85; font-size: 15px; }
+.si-sec + .si-sec { border-top: 1px dashed var(--line); }
+.si-sec > div { flex: 1; min-width: 0; }
+.si-sec p { margin: 4px 0; overflow-wrap: anywhere; }
+.si-k { flex: none; width: 26px; height: 26px; border-radius: 9px; background: var(--secondary-soft); color: var(--secondary); font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; }
+.si-t { display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--primary); }
+.si-t .ic { width: 17px; height: 17px; }
+.si-ayah { font-size: 20px; margin: 6px 0 0; }
+.q-inline { font-family: var(--quran); font-size: 1.12em; }
+.src { color: var(--secondary); font-size: 12.5px; }
+.si-sources { margin-top: 16px; font-size: 13px; color: var(--muted); }
+.si-sources summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.si-sources ul { padding-right: 18px; margin: 4px 0; line-height: 1.8; }
 .juz-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-gap: 10px; }
 .juz-card { display: flex; flex-direction: column; align-items: center; padding: 12px 6px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); text-align: center; line-height: 1.35; }
 .juz-card small { font-size: 11.5px; color: var(--muted); }

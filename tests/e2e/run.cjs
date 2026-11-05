@@ -47,8 +47,8 @@ const server = http.createServer((req, res) => {
     // أخطاء تحميل الشبكة متوقعة في اختبار انقطاع خدمة الخرائط، ولها فحص خاص
     page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(`${theme}: ${m.text()}`); });
     const routes = theme === 'oasis'
-      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques']
-      : ['home', 'quran', 'mushaf/2', 'read/morning', 'more'];
+      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques', 'suras', 'suras/112', 'read/anger', 'read/distress']
+      : ['home', 'quran', 'mushaf/2', 'read/morning', 'more', 'suras/96'];
     for (const r of routes) {
       await page.goto(`${base}#/${r}`);
       await page.waitForTimeout(r.startsWith('mushaf') || r === 'quran' ? 900 : 450);
@@ -155,6 +155,45 @@ const server = http.createServer((req, res) => {
       await page.waitForTimeout(400);
       const tile = await page.textContent('.tile-mosque b');
       if (tile !== 'الجامع الكبير') errors.push(`بطاقة الرئيسية لا تعرض أقرب مسجد: ${tile}`);
+
+      // مداخل السور: البوابة من تبويب القرآن، وفتح سورة، والآية المستشهد بها من المصحف
+      await page.goto(`${base}#/quran`);
+      await page.waitForTimeout(400);
+      await page.click('.si-gate');
+      await page.waitForTimeout(400);
+      if (!/#\/suras$/.test(page.url())) errors.push(`بوابة مداخل السور لم تُفتح: ${page.url()}`);
+      const cards = await page.$$eval('.si-card', (x) => x.length);
+      if (cards !== 114) errors.push(`عدد السور في مداخل السور ${cards}`);
+      await page.click('#sura-2 .si-head');
+      await page.waitForTimeout(900);
+      const s2 = await page.textContent('#sura-2');
+      for (const w of ['لماذا سُمّيت', 'متى نزلت', 'سبب نزولها', 'من مقاصد السورة', 'عدد آياتها', '٢٨٦ آية', 'بقرة']) if (s2.indexOf(w) === -1) errors.push(`بطاقة البقرة لا تحوي «${w}»`);
+      const ay = await page.textContent('#sura-2 .si-ayah');
+      if (!/﴿.*بَقَرَةً.*﴾/.test(ay)) errors.push(`آية التسمية لم تُعرض من المصحف: ${ay}`);
+      await page.fill('[data-sq]', 'الكهف');
+      await page.waitForTimeout(200);
+      const found = await page.$$eval('.si-card', (x) => x.map((e) => e.id));
+      if (found.join() !== 'sura-18') errors.push(`البحث في مداخل السور: ${found.join()}`);
+      await page.fill('[data-sq]', '');
+      await page.goto(`${base}#/quran`);
+      await page.waitForTimeout(400);
+      await page.click('.sura-info-btn[data-to="#/suras/112"]');
+      await page.waitForTimeout(600);
+      const s112 = await page.textContent('#sura-112');
+      if (s112.indexOf('أُبيّ بن كعب') === -1) errors.push('زر النبذة لا يفتح سورة الإخلاص مفتوحة');
+      // أذكار المواقف في تبويب الأذكار، والرابط من المشاعر
+      await page.goto(`${base}#/library`);
+      await page.fill('#lib-q', '');
+      await page.waitForTimeout(400);
+      const lib = await page.textContent('#view');
+      for (const w of ['أذكار المواقف والأحوال', 'عند الغضب', 'الريح والرعد', 'الهمّ والكرب']) if (lib.indexOf(w) === -1) errors.push(`تبويب الأذكار لا يعرض «${w}»`);
+      await page.goto(`${base}#/home`);
+      await page.waitForTimeout(400);
+      await page.click('[data-act="mood"][data-id="anxious"]');
+      await page.waitForTimeout(500);
+      await page.click('.sheet [data-to="#/read/fear"]');
+      await page.waitForTimeout(500);
+      if (!/#\/read\/fear$/.test(page.url())) errors.push(`زر الأذكار من المشاعر لم يفتح باب الخوف: ${page.url()}`);
 
       // الختمة: بدء ختمة ثم قراءة ٥ صفحات
       await page.goto(`${base}#/quran`);

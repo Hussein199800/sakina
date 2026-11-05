@@ -7,6 +7,8 @@ import { FEELINGS, DAILY_AYAT } from '../src/data/spirit.js';
 import { SURAS, PAGES, JUZ } from '../src/data/quran-meta.js';
 import { normalize } from '../src/text.js';
 import { splitBasmala } from '../src/quran.js';
+import { SURA_INFO } from '../src/data/sura-info.js';
+import { NOTES } from '../src/data/sura-notes.js';
 
 const tanzil = (f) => readFileSync(new URL(`../data/tanzil/${f}`, import.meta.url), 'utf8')
   .split('\n').map((l) => l.split('|')).filter((p) => p.length === 3);
@@ -75,8 +77,10 @@ const NOT_IN_HISN = {
   'ruqyah-12': 'الحصن يورده ضمن سياق الحديث',
   'salawat-1': 'صيغة مختصرة امتثالاً للأمر في آية الأحزاب، وليست نصاً مأثوراً بلفظه',
   'salawat-4': 'صيغة أبي مسعود الأنصاري في صحيح مسلم (٤٠٥)، وليست في «حصن المسلم»',
+  'rain-5': 'الحصن يرسمها «وأحيي» بياءين، ولفظها في سنن أبي داود (١١٧٦) «وأحيِ» بفعل الأمر',
 };
-const HISN_CATS = ['morning', 'evening', 'prayer', 'sleep', 'waking', 'home', 'khala', 'wudu', 'adhan', 'mosque', 'food', 'travel', 'salawat', 'hamd'];
+const HISN_CATS = ['morning', 'evening', 'prayer', 'sleep', 'waking', 'home', 'khala', 'wudu', 'adhan', 'mosque', 'food', 'travel', 'salawat', 'hamd',
+  'anger', 'fear', 'wind', 'rain', 'distress', 'sick', 'joy', 'misc'];
 
 test('أذكار اليوم والليلة مطابقة لنصوص «حصن المسلم»', () => {
   let checked = 0;
@@ -128,4 +132,52 @@ test('فصل البسملة عن الآية الأولى للعرض لا يغي�
   });
   assert.equal(n, 112); // كل السور عدا الفاتحة والتوبة
   assert.equal(splitBasmala(0, UTHMANI[0][2]).basmala, ''); // الفاتحة: البسملة آية مستقلة
+});
+
+// ---------- مداخل السور ----------
+const MUKH = JSON.parse(readFileSync(new URL('../data/mukhtasar/maqasid.json', import.meta.url), 'utf8')).items;
+const TANZIL_ROWS = [...readFileSync(new URL('../data/tanzil/quran-data.js', import.meta.url), 'utf8')
+  .matchAll(/\[(\d+), (\d+), (\d+), (\d+), '([^']+)', "[^"]*", '[^']*', '(Meccan|Medinan)'\]/g)];
+
+test('مداخل السور: المكي والمدني والمقاصد بنص «المختصر»، وترتيب النزول من Tanzil', () => {
+  assert.equal(SURA_INFO.length, 114);
+  assert.equal(TANZIL_ROWS.length, 114);
+  SURA_INFO.forEach(([place, order, maqasid], i) => {
+    const m = MUKH[i];
+    assert.equal(m.s, i + 1);
+    assert.equal(maqasid, m.maqasid, `السورة ${i + 1}: المقاصد لا تطابق «المختصر»`);
+    assert.ok(m.header.endsWith(place === 'm' ? 'مكية' : 'مدنية'), `السورة ${i + 1}: المكي والمدني لا يطابق «المختصر»`);
+    assert.equal(order, +TANZIL_ROWS[i][3], `السورة ${i + 1}: ترتيب النزول لا يطابق Tanzil`);
+  });
+  assert.deepEqual(SURA_INFO.map((x) => x[1]).sort((a, b) => a - b), Array.from({ length: 114 }, (_, i) => i + 1));
+  // نقاط معروفة: العلق أول ما نزل، والفاتحة الخامسة، والنصر من آخر ما نزل
+  assert.equal(SURA_INFO[95][1], 1);
+  assert.equal(SURA_INFO[0][1], 5);
+  assert.equal(SURA_INFO[109][1], 114);
+});
+
+test('مداخل السور: الآيات المستشهد بها مطابقة، واسم السورة وارد في الآية المذكورة', () => {
+  const batch1 = [...Array.from({ length: 9 }, (_, i) => i + 1), ...Array.from({ length: 37 }, (_, i) => i + 78)];
+  for (const s of batch1) assert.ok(NOTES[s] && NOTES[s].name && NOTES[s].name.w, `السورة ${s}: لا يوجد سبب تسمية`);
+  for (const [k, n] of Object.entries(NOTES)) {
+    const s = +k;
+    const texts = [n.name.w, n.sabab && n.sabab.t, n.when && n.when.t].filter(Boolean);
+    for (const t of texts) {
+      for (const seg of segments(t)) assert.ok(QURAN_ALL.indexOf(cmp(seg)) !== -1, `السورة ${s}: النص القرآني لا يطابق المصحف «${seg}»`);
+    }
+    if (n.name.ref) {
+      const [rs, ra] = n.name.ref;
+      assert.equal(rs, s, `السورة ${s}: مرجع التسمية من سورة أخرى`);
+      assert.ok(ra >= 1 && ra <= SURAS[s - 1][1]);
+      const v = verse.find((x) => x.s === rs && x.a === ra);
+      const flat = (t) => cmp(t).replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+      assert.ok(flat(v.n).indexOf(flat(n.name.kw)) !== -1, `السورة ${s}: الكلمة «${n.name.kw}» ليست في الآية ${ra}`);
+    }
+    if (n.name.src === 'المختصر') {
+      const plain = (t) => cmp(t).replace(/[()٠-٩0-9]/g, '').replace(/\s+/g, ' ');
+      const src = MUKH[s - 1].naming;
+      assert.ok(src && plain(src).indexOf(plain(n.name.w)) !== -1, `السورة ${s}: سبب التسمية المنسوب للمختصر لا يطابق نصه`);
+    }
+    for (const part of [n.sabab, n.when]) if (part) assert.ok(/رواه/.test(part.src), `السورة ${s}: سبب أو ملاحظة بلا تخريج`);
+  }
 });
