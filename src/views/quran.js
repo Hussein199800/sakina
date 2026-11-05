@@ -59,11 +59,14 @@ function khatmaCard() {
 
 function suraList() {
   return `<div class="sura-list">${SURAS.map(([name, ayas, start, type], i) => `
-    <button class="sura-row" data-act="go" data-to="#/mushaf/${pageOf(start)}">
-      <span class="sura-num">${num(i + 1)}</span>
-      <span class="sura-txt"><b>${name}</b><small>${type === 'm' ? 'مكية' : 'مدنية'} · ${num(ayas)} آية</small></span>
-      <span class="sura-page">${num(pageOf(start))}</span>
-    </button>`).join('')}</div>`;
+    <div class="sura-row mark-row">
+      <button class="mark-go" data-act="go" data-to="#/mushaf/${pageOf(start)}">
+        <span class="sura-num">${num(i + 1)}</span>
+        <span class="sura-txt"><b>${name}</b><small>${type === 'm' ? 'مكية' : 'مدنية'} · ${num(ayas)} آية</small></span>
+        <span class="sura-page">${num(pageOf(start))}</span>
+      </button>
+      <button class="icon-btn sm sura-info-btn" data-act="go" data-to="#/suras/${i + 1}" aria-label="نبذة عن سورة ${name}">${icon('info')}</button>
+    </div>`).join('')}</div>`;
 }
 
 function juzList() {
@@ -99,6 +102,11 @@ export function render() {
       ${query.trim() ? '<div class="empty">جارٍ البحث…</div>' : `
       ${continueCard()}
       ${khatmaCard()}
+      <button class="card si-gate" data-act="go" data-to="#/suras">
+        <span class="kc-ic">${icon('list')}</span>
+        <span><b>مداخل السور</b><small>لماذا سُمّيت كل سورة، ومتى نزلت، وسبب نزولها، ومقاصدها، وعدد آياتها</small></span>
+        ${icon('chevron')}
+      </button>
       <div class="seg tabs3" role="tablist">
         ${[['suras', 'السور'], ['juz', 'الأجزاء'], ['marks', 'العلامات']].map(([k, l]) => `<button class="seg-btn ${tab === k ? 'on' : ''}" data-act="q-tab" data-k="${k}" role="tab" aria-selected="${tab === k}">${l}</button>`).join('')}
       </div>
