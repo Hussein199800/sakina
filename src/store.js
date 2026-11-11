@@ -106,6 +106,14 @@ export function sanitize(st) {
   // حاسبة قيام الليل: إدخال يدوي اختياري
   if (st.qiyam !== undefined && st.qiyam !== null && !(isObj(st.qiyam) && TIME.test(st.qiyam.maghrib) && TIME.test(st.qiyam.fajr))) st.qiyam = null;
   else if (st.qiyam) st.qiyam.manual = !!st.qiyam.manual;
+  // «لمن تحب»: دعواتي الخاصة، ومسودة بطاقة الدعاء، والتصاميم المحفوظة (كلها على الجهاز فقط)
+  st.loved = Array.isArray(st.loved) ? st.loved.filter((p) => isObj(p) && typeof p.id === 'string' && typeof p.name === 'string' && p.name.trim()).map((p) => ({
+    id: p.id, name: p.name.slice(0, 120), form: oneOf(p.form, ['m', 'f', 'p'], 'm'),
+    duas: Array.isArray(p.duas) ? p.duas.filter((d) => isObj(d) && typeof d.t === 'string' && d.t.trim() && typeof d.id === 'string').map((d) => ({ id: d.id, t: d.t.slice(0, 2000) })) : [],
+    count: Math.max(0, Math.floor(clampNum(p.count, 0, 1e7, 0))), last: typeof p.last === 'string' ? p.last : '',
+  })) : [];
+  if (st.cardDraft !== undefined && st.cardDraft !== null && !isObj(st.cardDraft)) st.cardDraft = null;
+  st.cardDesigns = Array.isArray(st.cardDesigns) ? st.cardDesigns.filter((d) => isObj(d) && typeof d.id === 'string' && isObj(d.spec)).slice(0, 30) : [];
   if (st.mywird !== undefined && !Array.isArray(st.mywird)) st.mywird = [];
   if (Array.isArray(st.mywird)) st.mywird = st.mywird.filter((w) => isObj(w) && typeof w.id === 'string').map((w) => ({ id: w.id, n: Math.round(clampNum(w.n, 1, 10000, 1)) }));
   for (const k of ['favorites', 'custom', 'reminders']) if (!Array.isArray(st[k])) st[k] = [];

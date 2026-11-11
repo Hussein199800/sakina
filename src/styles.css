@@ -968,3 +968,64 @@ textarea.plain { font-family: var(--ui) !important; font-size: 16px !important; 
   .mushaf-page, .reader-body { max-width: 760px; margin-left: auto; margin-right: auto; }
   .sheet { max-width: 680px; }
 }
+
+/* ---------- لمن تحب و«ادعُ لأخيك» ---------- */
+.seg.tabs3 .seg-btn { font-size: 14.5px; padding: 0 4px; }
+.lv-hadith { font-size: 14px; line-height: 1.8; color: var(--muted); margin: 4px 0 12px; }
+.lv-entries { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 12px; margin-bottom: 12px; }
+.lv-entry { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px 14px; border-radius: 22px; background: var(--card); border: 1px solid var(--line); text-align: right; min-height: 140px; }
+.lv-entry .cat-ic { width: 48px; height: 48px; border-radius: 16px; background: var(--tbg); color: var(--tfg); display: inline-flex; align-items: center; justify-content: center; }
+.lv-entry b { font-size: 17px; }
+.lv-entry small { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.lv-page { display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px; }
+.lv-list { padding: 4px 0; }
+.lv-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; min-height: 64px; text-align: right; }
+.lv-row + .lv-row { border-top: 1px solid var(--line); }
+.lv-av { width: 42px; height: 42px; flex: none; border-radius: 50%; background: var(--primary-soft); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; }
+.lv-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.5; }
+.lv-txt b { overflow-wrap: anywhere; }
+.lv-txt small { color: var(--muted); font-size: 12.5px; }
+.lv-pray { display: flex; align-items: center; gap: 16px; padding: 16px; }
+.lv-pray > div { display: flex; flex-direction: column; }
+.lv-pray small { color: var(--muted); }
+.lv-tap { width: 68px; height: 68px; border-radius: 50%; background: var(--primary); color: var(--on-primary); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.lv-tap .ic { width: 30px; height: 30px; }
+.lv-head { display: flex; align-items: center; justify-content: space-between; }
+.lv-dua { display: flex; align-items: flex-start; gap: 8px; padding: 10px 0; border-top: 1px dashed var(--line); }
+.lv-dua p { flex: 1; margin: 0; font-family: var(--quran); font-size: 17px; line-height: 1.8; overflow-wrap: anywhere; }
+/* المصمم: خطوات قصيرة لا تحتاج تمريراً طويلاً */
+.cd-steps { display: flex; gap: 6px; margin: 4px 0 12px; }
+.cd-step { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); font-size: 13.5px; color: var(--muted); }
+.cd-step span { width: 22px; height: 22px; border-radius: 50%; background: var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+.cd-step.on { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+.cd-step.on span, .cd-step.done span { background: var(--primary); color: var(--on-primary); }
+.cd-body { padding-bottom: 90px; }
+.cd-sec { display: flex; flex-direction: column; gap: 10px; }
+.cd-sec .field { margin: 0; }
+.cd-from { margin-top: -2px; }
+.cd-alias { width: 100%; height: 46px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--bg); padding: 0 12px; font-size: 15px; }
+.cd-occ { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+.cd-occ::-webkit-scrollbar { display: none; }
+.cd-occ .chip { flex: none; }
+.cd-sugs { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.cd-sug { text-align: right; padding: 12px 14px; border-radius: 18px; background: var(--card); border: 1.5px solid var(--line); }
+.cd-sug p { margin: 0 0 4px; font-family: var(--quran); font-size: 18px; line-height: 1.8; }
+.cd-sug small { color: var(--secondary); font-size: 12px; }
+.cd-sug.on { border-color: var(--primary); background: var(--primary-soft); }
+.cd-kind { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.cd-kind .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--secondary); }
+.cd-preview { display: flex; align-items: center; justify-content: center; min-height: 160px; }
+.cd-preview img { max-width: 100%; max-height: 40vh; border-radius: 14px; box-shadow: var(--shadow); display: block; }
+.cd-warn { display: flex; gap: 6px; font-size: 13px; color: var(--rose-fg); background: var(--rose-bg); border-radius: 12px; padding: 8px 10px; margin: 8px 0 0; line-height: 1.6; }
+.cd-panels { margin: 10px 0 8px; }
+.cd-panels .seg-btn { font-size: 13px; height: 40px; }
+.cd-panel { min-height: 64px; }
+.cd-row { display: flex; align-items: center; gap: 10px; justify-content: space-between; min-height: 48px; font-size: 14px; }
+.cd-tpls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-gap: 6px; }
+.cd-tpl { height: 56px; min-width: 0; border-radius: 14px; font-size: 12px; font-weight: 600; border: 2px solid transparent; overflow: hidden; padding: 0 2px; }
+.cd-tpl.on { border-color: var(--secondary); box-shadow: 0 0 0 2px var(--card) inset; }
+.cd-foot { position: fixed; z-index: 30; left: 0; right: 0; margin: 0 auto; bottom: calc(10px + var(--safe-bottom)); width: calc(100% - 24px); max-width: 536px; box-sizing: border-box; display: flex; gap: 8px; justify-content: space-between; padding: 10px; border-radius: 22px; background: var(--glass); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.cd-foot .btn { flex: 1; min-height: 46px; }
+.cd-actions .btn { font-size: 13px; padding: 0 6px; line-height: 1.3; }
+.cd-actions .btn[disabled] { opacity: .45; }
+@media (min-width: 840px) { .lv-entries { grid-template-columns: 1fr 1fr; max-width: 760px; } .cd-foot { max-width: 680px; } }

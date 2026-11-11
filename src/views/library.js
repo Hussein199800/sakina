@@ -4,6 +4,7 @@ import { icon } from '../icons.js';
 import { num, esc, normalize, parseNum } from '../text.js';
 import { CATEGORIES } from '../data/adhkar.js';
 import { FEELINGS } from '../data/spirit.js';
+import { HADITH_GHAIB, HADITH_GHAIB_SRC } from '../data/loved-duas.js';
 import { NOT_MEDICAL } from './feel.js';
 import { catProgress, itemsOf } from '../services.js';
 import { pageHead, bar, go } from './common.js';
@@ -22,7 +23,7 @@ function catCard(c, big = false) {
   </button>`;
 }
 
-const TABS = [['daily', 'اليومية'], ['awrad', 'الأوراد'], ['feel', 'صيدلية الروح']];
+const TABS = [['daily', 'اليومية'], ['awrad', 'الأوراد'], ['feel', 'صيدلية الروح'], ['loved', 'لمن تحب']];
 let tab = 'daily';
 const group = (g) => CATEGORIES.filter((c) => c.group === g);
 
@@ -92,8 +93,26 @@ function feel() {
     </section>`;
 }
 
+function loved() {
+  const n = state.loved.length;
+  const designs = state.cardDesigns || [];
+  return `
+    <p class="lv-hadith">${HADITH_GHAIB} <small class="src">${HADITH_GHAIB_SRC}</small></p>
+    <div class="lv-entries">
+      <button class="lv-entry tone-rose" data-act="go" data-to="#/loved">
+        <span class="cat-ic">${icon('heart')}</span><b>دعواتي</b><small>${n ? `${num(n)} ${n === 1 ? 'شخص' : 'أشخاص'} تدعو لهم` : 'من تدعو لهم بظهر الغيب'}</small>
+      </button>
+      <button class="lv-entry tone-teal" data-act="go" data-to="#/card/new">
+        <span class="cat-ic">${icon('image')}</span><b>ادعُ لأخيك</b><small>دعوة طيبة لمن تحب، باسمهم وبأسلوبك</small>
+      </button>
+    </div>
+    ${state.cardDraft && state.cardDraft.text ? `<button class="link-row" data-act="go" data-to="#/card">${icon('edit')} متابعة البطاقة غير المكتملة ${icon('chevron')}</button>` : ''}
+    ${designs.length ? `<div class="block-head"><h2>تصاميمي</h2></div><div class="chips">${designs.slice(0, 8).map((d) => `<button class="chip" data-act="go" data-to="#/card/d:${d.id}">${icon('bookmark')} ${esc(d.title)}</button>`).join('')}</div>` : ''}
+    <p class="muted small">دعواتك الخاصة على جهازك فقط. البطاقة لا تُنشر إلا حين تختار المشاركة، ولا تُضاف إليها أي بيانات أخرى.</p>`;
+}
+
 function sections() {
-  return tab === 'awrad' ? awrad() : tab === 'feel' ? feel() : daily();
+  return tab === 'awrad' ? awrad() : tab === 'feel' ? feel() : tab === 'loved' ? loved() : daily();
 }
 
 function results() {
@@ -114,15 +133,19 @@ export function render(param) {
   if (TABS.some(([k]) => k === param)) tab = param;
   return `${pageHead('الأذكار والأدعية', 'من حصن المسلم وصحيح السنة')}
     <div class="seg tabs3" role="tablist">${TABS.map(([k, l]) => `<button class="seg-btn ${tab === k ? 'on' : ''}" data-act="lib-tab" data-k="${k}" role="tab" aria-selected="${tab === k}">${l}</button>`).join('')}</div>
-    <label class="search">${icon('search')}
+    ${searchable() ? `<label class="search">${icon('search')}
       <input type="search" id="lib-q" placeholder="ابحث في نص الذكر أو عنوانه…" value="${esc(query)}" autocomplete="off" enterkeyhint="search">
       <button class="icon-btn sm ${query ? '' : 'hidden'}" data-act="lib-clear" aria-label="مسح">${icon('x')}</button>
-    </label>
-    <div id="lib-body">${query ? results() : sections()}</div>`;
+    </label>` : ''}
+    <div id="lib-body">${searchable() && query ? results() : sections()}</div>`;
 }
+
+// البحث في الأذكار يظهر في تبويبي اليومية والأوراد فقط
+const searchable = () => tab === 'daily' || tab === 'awrad';
 
 export function mount(el) {
   const input = el.querySelector('#lib-q');
+  if (!input) return;
   input.addEventListener('input', () => {
     query = input.value;
     el.querySelector('#lib-body').innerHTML = query.trim() ? results() : sections();

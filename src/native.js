@@ -92,6 +92,23 @@ export async function shareText(text, title = 'سكينة') {
   return copyText(text).then(() => 'copied');
 }
 
+const Gallery = registerPlugin('SakinaGallery');
+/** حفظ صورة PNG في معرض الصور (ألبوم سكينة) على أندرويد، أو تنزيلها في المتصفح. يعيد 'gallery' أو 'download' أو false */
+export async function saveImageToGallery(dataUrl, name = 'sakina.png') {
+  if (isAndroid) {
+    try { await Gallery.save({ data: dataUrl.split(',')[1], name }); return 'gallery'; } catch (e) { return false; }
+  }
+  try {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return 'download';
+  } catch (e) { return false; }
+}
+
 /** مشاركة صورة PNG (dataURL) */
 export async function shareImage(dataUrl, name = 'sakina.png') {
   if (isNative) {

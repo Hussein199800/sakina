@@ -27,6 +27,8 @@ export const SHORTCUTS = [
   { id: 'suras', label: 'مداخل السور', icon: 'list', tone: 'sand', to: '#/suras' },
   { id: 'tasbih', label: 'المسبحة', icon: 'beads', tone: 'teal', to: '#/tasbih' },
   { id: 'feel', label: 'صيدلية الروح', icon: 'heart', tone: 'rose', to: '#/library/feel' },
+  { id: 'card', label: 'ادعُ لأخيك', icon: 'image', tone: 'teal', to: '#/card/new' },
+  { id: 'loved', label: 'دعواتي', icon: 'heart', tone: 'violet', to: '#/loved' },
   { id: 'qibla', label: 'القبلة', icon: 'compass', tone: 'indigo', to: '#/qibla' },
   { id: 'qiyam', label: 'قيام الليل', icon: 'moon', tone: 'violet', to: '#/qiyam' },
   { id: 'mosques', label: 'المساجد', icon: 'mosque', tone: 'rose', to: '#/mosques' },

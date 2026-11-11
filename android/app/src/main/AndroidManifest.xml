@@ -51,6 +51,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- تثبيت التحديثات من داخل التطبيق (يمنحه المستخدم مرة واحدة) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- حفظ بطاقات الدعاء في معرض الصور على أندرويد ٨ و٩ فقط؛ أندرويد ١٠ وما بعده لا يحتاجه -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <!-- الموقع التقريبي يكفي لحساب مواقيت الصلاة واتجاه القبلة -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

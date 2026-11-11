@@ -9,6 +9,7 @@ import { normalize } from '../src/text.js';
 import { splitBasmala } from '../src/quran.js';
 import { SURA_INFO } from '../src/data/sura-info.js';
 import { NOTES } from '../src/data/sura-notes.js';
+import { LOVED_DUAS, OCCASIONS } from '../src/data/loved-duas.js';
 
 const tanzil = (f) => readFileSync(new URL(`../data/tanzil/${f}`, import.meta.url), 'utf8')
   .split('\n').map((l) => l.split('|')).filter((p) => p.length === 3);
@@ -180,4 +181,47 @@ test('مداخل السور: الآيات المستشهد بها مطابقة،
     }
     for (const part of [n.sabab, n.when]) if (part) assert.ok(/رواه/.test(part.src), `السورة ${s}: سبب أو ملاحظة بلا تخريج`);
   }
+});
+
+// ---------- «ادعُ لأخيك»: أدعية مأثورة فقط ----------
+// نصوص صحيحة ليست في «حصن المسلم»، ولكل منها مصدرها
+const LOVED_NOT_IN_HISN = {
+  'g-hafiz': 'صحيح مسلم (٦٨١)، قول النبي ﷺ لأبي قتادة',
+  's-rabbannas': 'صحيح البخاري (٥٧٤٣) ومسلم (٢١٩١)',
+  't-fiqh': 'صحيح البخاري (١٤٣)',
+  'r-anas': 'صحيح البخاري (٦٣٣٤) ومسلم (٢٤٨٠)',
+  'r-ahlik': 'صحيح البخاري (٢٠٤٩)',
+};
+
+test('«ادعُ لأخيك»: كل دعاء مأثور مطابق لمصدره، وتصريف الضمير لا يغيّر غيره', () => {
+  const occ = OCCASIONS.map((o) => o.id);
+  let checked = 0;
+  for (const d of LOVED_DUAS) {
+    assert.ok(occ.indexOf(d.occ) !== -1 && d.occ !== 'own', `${d.id}: مناسبة غير معروفة`);
+    assert.ok(d.s && d.s.trim(), `${d.id}: بلا مصدر`);
+    const segs = segments(d.t);
+    if (segs.length) {
+      const rt = refText(d.s);
+      for (const seg of segs) {
+        assert.ok(QURAN_ALL.indexOf(cmp(seg)) !== -1, `${d.id}: النص القرآني لا يطابق المصحف`);
+        assert.ok(rt && rt.indexOf(cmp(seg)) !== -1, `${d.id}: الآية لا توافق المرجع ${d.s}`);
+      }
+      assert.ok(!d.tf && !d.tp, `${d.id}: لا يُصرَّف نص آية`);
+      checked += 1;
+      continue;
+    }
+    if (!LOVED_NOT_IN_HISN[d.id]) {
+      const rest = cmp(d.t);
+      assert.ok(HISN.some((h) => h.n.indexOf(rest) !== -1), `${d.id}: النص لا يطابق «حصن المسلم»: ${d.t}`);
+      checked += 1;
+    }
+    // تصريف الضمير: العدد نفسه من الكلمات، وكل كلمة مختلفة تبدأ بالجذر نفسه (أول حرفين بلا تشكيل)
+    for (const v of [d.tf, d.tp].filter(Boolean)) {
+      const a = cmp(d.t).split(' ');
+      const b = cmp(v).split(' ');
+      assert.equal(a.length, b.length, `${d.id}: الصيغة المصرّفة تغيّر عدد الكلمات`);
+      a.forEach((w, i) => { if (w !== b[i]) assert.equal(w.slice(0, 2), b[i].slice(0, 2), `${d.id}: «${w}» ← «${b[i]}» ليس تصريفاً للضمير`); });
+    }
+  }
+  assert.ok(checked >= 15, `عدد المفحوص قليل: ${checked}`);
 });

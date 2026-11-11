@@ -325,3 +325,50 @@ test('سلامة إعدادات ١٫٥: التأجيل والهدوء والتخ
   const empty = sanitize(JSON.parse(JSON.stringify({ ...DEFAULTS, settings: { ...DEFAULTS.settings, snooze: [] } })));
   assert.deepEqual(empty.settings.snooze, [5, 15, 30, 60]);
 });
+
+// ---------- الإصدار ١٫٦: «ادعُ لأخيك» ----------
+import { cardHeading, sourceLine, cardPlainText, DEFAULT_SPEC } from '../src/duacard.js';
+import { duaText, LOVED_DUAS } from '../src/data/loved-duas.js';
+
+test('بطاقة الدعاء: العنوان والاسم المخفي والصيغة والمصدر ونص المشاركة', () => {
+  const base = { ...DEFAULT_SPEC, name: 'عبد الرحمن بن محمد بن عبد الله الطويل', text: 'جَزَاكَ اللَّهُ خَيْرًا.', source: 'رواه الترمذي', kind: 'mathur' };
+  // الاسم الطويل كاملاً دون قص
+  assert.equal(cardHeading(base), 'دعوة طيبة لعبد الرحمن بن محمد بن عبد الله الطويل');
+  // إخفاء الاسم: لا يظهر في العنوان ولا في نص المشاركة
+  const hidden = { ...base, hideName: true };
+  assert.equal(cardHeading(hidden), 'دعوة طيبة لشخص عزيز');
+  assert.ok(cardPlainText(hidden).indexOf('عبد الرحمن') === -1);
+  // المأثور يُنسب لمصدره، والمعدّل «بتصرّف» دون مصدر، ونص المستخدم بلا نسبة
+  assert.equal(sourceLine(base), 'رواه الترمذي');
+  assert.equal(sourceLine({ ...base, kind: 'edited' }), 'دعاء بتصرّف');
+  assert.equal(sourceLine({ ...base, kind: 'own' }), '');
+  assert.equal(sourceLine({ ...base, adapted: true }), 'رواه الترمذي (بتصريف الضمير)');
+  // «لا تنسوه/تنسوها/تنسوهم» بحسب الصيغة، فقط عند تفعيلها
+  assert.ok(cardPlainText(base).indexOf('لا تنسوه') === -1);
+  assert.ok(cardPlainText({ ...base, headline: true, form: 'f' }).indexOf('لا تنسوها من دعائكم') !== -1);
+  assert.ok(cardPlainText({ ...base, headline: true, form: 'p' }).indexOf('لا تنسوهم من دعائكم') !== -1);
+  // بطاقة ذكر: الاسم اختياري
+  assert.equal(cardHeading({ ...base, type: 'text', name: '' }), '');
+  // نص المشاركة لا يحوي غير ما في البطاقة
+  const txt = cardPlainText({ ...base, signature: 'أخوك' });
+  assert.deepEqual(txt.split('\n\n'), ['دعوة طيبة لعبد الرحمن بن محمد بن عبد الله الطويل', 'جَزَاكَ اللَّهُ خَيْرًا.', 'رواه الترمذي', '— أخوك']);
+});
+
+test('الصيغة: له ولها ولهم تُطبَّق على أدعية الغائب فقط', () => {
+  const dead = LOVED_DUAS.find((d) => d.id === 'd-tathbit');
+  assert.deepEqual(duaText(dead, 'f'), { t: dead.tf, adapted: true });
+  assert.deepEqual(duaText(dead, 'p'), { t: dead.tp, adapted: true });
+  assert.deepEqual(duaText(dead, 'm'), { t: dead.t, adapted: false });
+  const ayah = LOVED_DUAS.find((d) => d.id === 'p-irham');
+  assert.deepEqual(duaText(ayah, 'f'), { t: ayah.t, adapted: false });
+});
+
+test('سلامة بيانات «لمن تحب»: الأشخاص والدعوات والتصاميم', () => {
+  const st = sanitize(JSON.parse(JSON.stringify({ ...DEFAULTS, loved: [{ id: 'p1', name: 'أحمد', form: 'x', duas: [{ id: 'd1', t: 'اللهم' }, { t: '' }, 'x'], count: -3 }, { id: 'p2', name: '  ' }, 'bad'], cardDraft: 'bad', cardDesigns: [{ id: 'c1', spec: {} }, { spec: 1 }] })));
+  assert.equal(st.loved.length, 1);
+  assert.equal(st.loved[0].form, 'm');
+  assert.deepEqual(st.loved[0].duas, [{ id: 'd1', t: 'اللهم' }]);
+  assert.equal(st.loved[0].count, 0);
+  assert.equal(st.cardDraft, null);
+  assert.equal(st.cardDesigns.length, 1);
+});

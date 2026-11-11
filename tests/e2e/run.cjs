@@ -47,7 +47,7 @@ const server = http.createServer((req, res) => {
     // أخطاء تحميل الشبكة متوقعة في اختبار انقطاع خدمة الخرائط، ولها فحص خاص
     page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(`${theme}: ${m.text()}`); });
     const routes = theme === 'oasis'
-      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques', 'suras', 'suras/112', 'read/anger', 'read/distress', 'library/awrad', 'library/feel', 'feel/angry', 'feel/sick', 'qiyam', 'customize', 'mywird', 'about', 'read/istighfar', 'read/mywird']
+      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques', 'suras', 'suras/112', 'read/anger', 'read/distress', 'library/awrad', 'library/feel', 'feel/angry', 'feel/sick', 'qiyam', 'customize', 'mywird', 'about', 'read/istighfar', 'read/mywird', 'library/loved', 'loved', 'card/new']
       : ['home', 'quran', 'mushaf/2', 'read/morning', 'more', 'suras/96'];
     for (const r of routes) {
       await page.goto(`${base}#/${r}`);
@@ -76,7 +76,7 @@ const server = http.createServer((req, res) => {
       if (!/#\/feel\/grateful$/.test(page.url())) errors.push(`بطاقة المشاعر لم تفتح صفحة الحالة: ${page.url()}`);
       if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-feel.png') });
       await page.click('[data-mood-tap]');
-      await page.goto(`${base}#/library`);
+      await page.goto(`${base}#/library/daily`);
       await page.fill('#lib-q', 'استغفر');
       await page.waitForTimeout(200);
       const n = await page.$$eval('.result', (els) => els.length);
@@ -247,6 +247,76 @@ const server = http.createServer((req, res) => {
       const after = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')));
       if (after.settings.home !== null) errors.push('الاستعادة لم تُرجع الترتيب الافتراضي');
       if (!after.mywird || after.mywird.length !== 1) errors.push('استعادة الرئيسية حذفت بيانات أخرى');
+      // ١٫٦: دعواتي — إضافة شخص، ودعوت الآن، ودعوة خاصة
+      await page.goto(`${base}#/loved`);
+      await page.waitForTimeout(300);
+      await page.click('.empty [data-act="lv-add"]');
+      await page.waitForTimeout(400);
+      await page.fill('.sheet [data-name]', 'فاطمة بنت عبد الله بن محمد الطويل');
+      await page.click('.sheet [data-form="f"]');
+      await page.click('.sheet [data-save]');
+      await page.waitForTimeout(500);
+      if (!/#\/loved\/p-/.test(page.url())) errors.push(`إضافة شخص لم تفتح صفحته: ${page.url()}`);
+      await page.click('[data-act="lv-prayed"]');
+      await page.waitForTimeout(300);
+      await page.click('.lv-head [data-act="lv-dua"]');
+      await page.waitForTimeout(400);
+      await page.fill('.sheet [data-t]', 'دعوة سرية خاصة بها');
+      await page.click('.sheet [data-save]');
+      await page.waitForTimeout(400);
+      const lv = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).loved);
+      if (!lv || lv.length !== 1 || lv[0].form !== 'f' || lv[0].count !== 1 || lv[0].duas.length !== 1) errors.push(`دعواتي لم تُحفظ كما يجب: ${JSON.stringify(lv)}`);
+      // إنشاء بطاقة من صفحة الشخص: الاسم والصيغة فقط، دون الدعوة الخاصة
+      await page.click('[data-to^="#/card/p:"]');
+      await page.waitForTimeout(500);
+      const nm = await page.inputValue('[data-f="name"]');
+      if (nm !== 'فاطمة بنت عبد الله بن محمد الطويل') errors.push(`البطاقة لم تأخذ الاسم: ${nm}`);
+      await page.click('[data-act="cd-next"]');
+      await page.waitForTimeout(300);
+      await page.click('[data-act="cd-occ"][data-k="dead"]');
+      await page.waitForTimeout(200);
+      await page.click('.cd-sug >> nth=0');
+      await page.waitForTimeout(300);
+      let draft = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).cardDraft);
+      if (draft.text.indexOf('دعوة سرية') !== -1) errors.push('الدعوة الخاصة تسرّبت إلى البطاقة');
+      if (!/لَهَا/.test(draft.text) || !draft.adapted || draft.kind !== 'mathur') errors.push(`الصيغة لم تُطبَّق على الدعاء: ${JSON.stringify(draft).slice(0, 160)}`);
+      // تعديل النص المأثور يجعله «بتصرّف»
+      await page.fill('[data-f="text"]', `${draft.text} وارزقها الفردوس`);
+      await page.waitForTimeout(300);
+      draft = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).cardDraft);
+      if (draft.kind !== 'edited') errors.push('تعديل النص المأثور لم يُعلَّم «بتصرّف»');
+      if ((await page.textContent('.cd-kind')).indexOf('بتصرّف') === -1) errors.push('لا يظهر تنبيه «بتصرّف»');
+      await page.click('[data-act="cd-next"]');
+      await page.waitForTimeout(1500);
+      if (!(await page.$('[data-preview] img'))) errors.push('لا تظهر معاينة البطاقة');
+      if (await page.$eval('[data-act="cd-share-img"]', (b) => b.disabled)) errors.push('أزرار المشاركة معطّلة دون سبب');
+      if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-card.png') });
+      // الصورة المصدّرة تطابق المعاينة: نفس دالة الرسم ونفس المقاس
+      const sz = await page.$eval('[data-preview] img', (i) => [i.naturalWidth, i.naturalHeight]);
+      if (sz.join() !== '1080,1920') errors.push(`مقاس الحالة غير صحيح: ${sz}`);
+      // حفظ التصميم ثم ظهوره في «لمن تحب»
+      await page.click('[data-act="cd-menu"]');
+      await page.waitForTimeout(400);
+      await page.click('.sheet [data-m="save"]');
+      await page.waitForTimeout(400);
+      // نص طويل جداً في مقاس مربع: تنبيه وتعطيل المشاركة بدل تصغير النص
+      await page.click('[data-act="cd-step"][data-n="2"]');
+      await page.waitForTimeout(300);
+      await page.click('[data-act="cd-occ"][data-k="own"]');
+      await page.waitForTimeout(300);
+      await page.fill('[data-f="text"]', 'اللهم اغفر لها وارحمها '.repeat(60));
+      await page.click('[data-act="cd-next"]');
+      await page.waitForTimeout(300);
+      await page.click('[data-act="cd-panel"][data-k="size"]');
+      await page.waitForTimeout(300);
+      await page.click('[data-act="cd-set"][data-v="square"]');
+      await page.waitForTimeout(1500);
+      if (await page.$eval('[data-warn]', (e) => e.hidden)) errors.push('لا يظهر تنبيه طول النص');
+      if (!(await page.$eval('[data-act="cd-share-img"]', (b) => b.disabled))) errors.push('المشاركة متاحة رغم تجاوز النص');
+      await page.goto(`${base}#/library/loved`);
+      await page.waitForTimeout(400);
+      if (!(await page.$('[data-to^="#/card/d:"]'))) errors.push('التصميم المحفوظ لا يظهر في «لمن تحب»');
+      if (await page.$('#lib-q')) errors.push('بحث الأذكار ظاهر في «لمن تحب»');
       // قيام الليل: إدخال يدوي
       await page.goto(`${base}#/qiyam`);
       await page.waitForTimeout(300);
