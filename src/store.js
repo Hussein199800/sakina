@@ -25,6 +25,14 @@ export const DEFAULTS = {
     },
     // الفقاعة العائمة فوق التطبيقات عند تذكير الأذكار
     overlay: false,
+    // اتباع وضع الهاتف: الواحة الهادئة نهاراً والسكينة الليلية في الوضع الداكن
+    followSystem: false,
+    // مدد تأجيل الفقاعة بالدقائق
+    snooze: [5, 15, 30, 60],
+    // ساعات الهدوء: لا تظهر فيها الفقاعة ولا التذكيرات المخصّصة (تبقى تنبيهات الصلاة)
+    quiet: { on: false, from: '23:00', to: '05:00' },
+    // تخصيص الرئيسية: ترتيب البطاقات والمخفي منها والاختصارات
+    home: null,
   },
   quran: { lastPage: 0, fontSize: 27, bookmarks: [] },
   // الختمة: page = الصفحة التالية للقراءة، log = الصفحات المقروءة لكل يوم
@@ -36,6 +44,8 @@ export const DEFAULTS = {
   progress: { date: '', counts: {} },
   favorites: [],
   custom: [],
+  // «وردي الخاص»: أذكار يختارها المستخدم من المكتبة بعدد يحدده [{id, n}]
+  mywird: [],
   tasbih: { selected: 'subhan', target: 33, count: 0, rounds: 0, total: 0 },
   history: {},
 };
@@ -77,7 +87,7 @@ export function sanitize(st) {
   s.readMode = oneOf(s.readMode, ['focus', 'list'], 'focus');
   s.asr = oneOf(s.asr, ['shafi', 'hanafi'], 'shafi');
   s.hijriAdjust = Math.round(clampNum(s.hijriAdjust, -2, 2, 0));
-  for (const k of ['tashkeel', 'autoAdvance', 'sound', 'haptic']) s[k] = typeof s[k] === 'boolean' ? s[k] : d.settings[k];
+  for (const k of ['tashkeel', 'autoAdvance', 'sound', 'haptic', 'followSystem']) s[k] = typeof s[k] === 'boolean' ? s[k] : d.settings[k];
   if (!isObj(s.location) || (s.location.type === 'gps' ? !(Number.isFinite(s.location.lat) && Number.isFinite(s.location.lng)) : !Number.isInteger(s.location.cityId))) s.location = { ...d.settings.location };
   for (const k of ['morning', 'evening', 'sleep']) {
     if (!isObj(s.notif[k])) s.notif[k] = { ...d.settings.notif[k] };
@@ -86,7 +96,18 @@ export function sanitize(st) {
   }
   s.notif.prayers = !!s.notif.prayers;
   s.overlay = !!s.overlay;
+  s.snooze = Array.isArray(s.snooze) ? [...new Set(s.snooze.map((m) => Math.round(+m)).filter((m) => m >= 1 && m <= 720))].sort((a, b) => a - b).slice(0, 6) : [];
+  if (!s.snooze.length) s.snooze = d.settings.snooze.slice();
+  if (!isObj(s.quiet)) s.quiet = { ...d.settings.quiet };
+  s.quiet = { on: !!s.quiet.on, from: TIME.test(s.quiet.from) ? s.quiet.from : '23:00', to: TIME.test(s.quiet.to) ? s.quiet.to : '05:00' };
+  if (s.home !== null && !(isObj(s.home) && Array.isArray(s.home.order) && Array.isArray(s.home.hidden) && Array.isArray(s.home.shortcuts))) s.home = null;
+  else if (s.home) for (const k of ['order', 'hidden', 'shortcuts']) s.home[k] = s.home[k].filter((x) => typeof x === 'string');
   delete s.adhanVoice; // أُلغيت ميزة صوت الأذان في الإصدار ١٫٣
+  // حاسبة قيام الليل: إدخال يدوي اختياري
+  if (st.qiyam !== undefined && st.qiyam !== null && !(isObj(st.qiyam) && TIME.test(st.qiyam.maghrib) && TIME.test(st.qiyam.fajr))) st.qiyam = null;
+  else if (st.qiyam) st.qiyam.manual = !!st.qiyam.manual;
+  if (st.mywird !== undefined && !Array.isArray(st.mywird)) st.mywird = [];
+  if (Array.isArray(st.mywird)) st.mywird = st.mywird.filter((w) => isObj(w) && typeof w.id === 'string').map((w) => ({ id: w.id, n: Math.round(clampNum(w.n, 1, 10000, 1)) }));
   for (const k of ['favorites', 'custom', 'reminders']) if (!Array.isArray(st[k])) st[k] = [];
   if (st.groups !== undefined && !Array.isArray(st.groups)) st.groups = [];
   st.favorites = st.favorites.filter((x) => typeof x === 'string');

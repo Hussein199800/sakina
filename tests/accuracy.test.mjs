@@ -77,10 +77,11 @@ const NOT_IN_HISN = {
   'ruqyah-12': 'الحصن يورده ضمن سياق الحديث',
   'salawat-1': 'صيغة مختصرة امتثالاً للأمر في آية الأحزاب، وليست نصاً مأثوراً بلفظه',
   'salawat-4': 'صيغة أبي مسعود الأنصاري في صحيح مسلم (٤٠٥)، وليست في «حصن المسلم»',
+  'takbir-0': 'لفظ صحيح مسلم (٦٠١)، والحصن يورده في دعاء الاستفتاح مكرراً ثلاثاً',
   'rain-5': 'الحصن يرسمها «وأحيي» بياءين، ولفظها في سنن أبي داود (١١٧٦) «وأحيِ» بفعل الأمر',
 };
 const HISN_CATS = ['morning', 'evening', 'prayer', 'sleep', 'waking', 'home', 'khala', 'wudu', 'adhan', 'mosque', 'food', 'travel', 'salawat', 'hamd',
-  'anger', 'fear', 'wind', 'rain', 'distress', 'sick', 'joy', 'misc'];
+  'anger', 'fear', 'wind', 'rain', 'distress', 'sick', 'joy', 'misc', 'istighfar', 'takbir', 'tasbihw'];
 
 test('أذكار اليوم والليلة مطابقة لنصوص «حصن المسلم»', () => {
   let checked = 0;

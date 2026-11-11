@@ -1,4 +1,4 @@
-// تبويب «المزيد»: رحلتي، التذكيرات، أسماء الله، القبلة، الإعدادات، ما الجديد، التحديثات، حول التطبيق
+// تبويب «المزيد»: مجموعات الأدوات والمعرفة والتنظيم الشخصي، ثم الإعدادات و«عن التطبيق» والمشاركة
 import { state, save } from '../store.js';
 import { icon } from '../icons.js';
 import { num, esc, daysLabel, fmtPct } from '../text.js';
@@ -39,33 +39,60 @@ function updateBanner() {
   </button>`;
 }
 
+const group = (title, html) => `<section class="block"><div class="block-head"><h2>${title}</h2></div><div class="more-grid">${html}</div></section>`;
+
 export function render() {
   const s = streak();
-  return `${pageHead('المزيد', 'أدوات ورحلتك مع سكينة')}
+  return `${pageHead('المزيد', 'أدوات ومعرفة وتنظيمك الشخصي')}
     ${updateBanner()}
-    <div class="more-grid">
-      ${tile('#/journal', 'journal', 'teal', 'رحلتي', s ? `التزام: ${daysLabel(s)}` : 'عاداتك والأيام المهمة')}
-      ${tile('#/reminders', 'bell', 'amber', 'التذكيرات', `${num(state.reminders.filter((r) => r.on).length)} تذكير مفعّل`)}
-      ${tile('#/names', 'star', 'violet', 'أسماء الله الحسنى', `${num(99)} اسماً ومعانيها`)}
-      ${tile('#/qibla', 'compass', 'indigo', 'بوصلة القبلة', 'اتجاه الكعبة المشرّفة')}
+    ${group('الأدوات والحاسبات', `
       ${tile('#/zakat', 'calculator', 'amber', 'حاسبة الزكاة', 'المال والذهب والفضة')}
-      ${tile('#/mosques', 'mosque', 'teal', 'المساجد القريبة', 'رادار ومسار مشياً')}
-    </div>
+      ${tile('#/qiyam', 'moon', 'indigo', 'قيام الليل', 'الثلث الأخير ونصف الليل')}
+      ${tile('#/qibla', 'compass', 'teal', 'بوصلة القبلة', 'اتجاه الكعبة المشرّفة')}
+      ${tile('#/mosques', 'mosque', 'rose', 'المساجد القريبة', 'رادار ومسار مشياً')}`)}
+    ${group('المعرفة', `
+      ${tile('#/names', 'star', 'violet', 'أسماء الله الحسنى', `${num(99)} اسماً ومعانيها`)}
+      ${tile('#/suras', 'list', 'sand', 'مداخل السور', 'تعريف بكل سورة')}`)}
+    ${group('التنظيم الشخصي', `
+      ${tile('#/journal', 'journal', 'teal', 'رحلتي', s ? `التزام: ${daysLabel(s)}` : 'عاداتك والأيام المهمة')}
+      ${tile('#/reminders', 'bell', 'amber', 'التذكيرات', `${num(state.reminders.filter((r) => r.on).length)} تذكير مفعّل`)}`)}
     <section class="card set-card">
-      ${row('data-act="go" data-to="#/settings"', 'settings', 'الإعدادات', 'الثيم، القراءة، المواقيت، التنبيهات، البيانات')}
-      ${row('data-act="go" data-to="#/whatsnew"', 'sparkle', 'ما الجديد', `الإصدار الحالي ${num(VERSION)}`)}
-      ${row('data-act="upd-check"', 'refresh', 'التحقق من التحديثات', state.app.lastUpdateCheck ? `آخر تحقق: ${fmtDate(new Date(state.app.lastUpdateCheck))}` : 'لم يتم التحقق بعد', '<span class="upd-state" data-upd-state></span>')}
-      <p class="vpn-note">${icon('info')} ${VPN_NOTE}</p>
+      ${row('data-act="go" data-to="#/settings"', 'settings', 'الإعدادات', 'المظهر، الصلاة، التذكيرات، البيانات')}
+      ${row('data-act="go" data-to="#/about"', 'info', 'عن التطبيق', `الإصدار ${num(VERSION)}، ما الجديد، التحديثات`, updateAvailable() ? `<span class="dot-badge">جديد</span>${icon('chevron')}` : '')}
       ${row('data-act="app-share"', 'share', 'شارك التطبيق', 'الدال على الخير كفاعله')}
-    </section>
+    </section>`;
+}
+
+// صفحة «عن التطبيق»: التعريف والإصدار وما الجديد والتحديثات والمصادر وبيانات المطور
+export const about = {
+  full: true,
+  tab: 'more',
+  render: () => `${fullHead('عن التطبيق', `سكينة · الإصدار ${num(VERSION)}`)}
     <section class="card about">
       <div class="about-logo">${icon('sparkle')}</div>
       <h2>سكينة</h2>
       <p class="muted">رفيقك الروحي اليومي · الإصدار ${num(VERSION)}</p>
       <p>أذكار وأدعية من صحيح السنة مطابقة لـ«حصن المسلم»، والقرآن الكريم بنص مشروع Tanzil المُدقَّق، ومواقيت صلاة دقيقة. يعمل بالكامل بدون إنترنت، مجاناً وبلا إعلانات.</p>
-      ${devCard()}
-    </section>`;
-}
+    </section>
+    ${updateBanner()}
+    <section class="card set-card">
+      ${row('data-act="go" data-to="#/whatsnew"', 'sparkle', 'ما الجديد', `الإصدار الحالي ${num(VERSION)}`)}
+      ${row('data-act="upd-check"', 'refresh', 'التحقق من التحديثات', state.app.lastUpdateCheck ? `آخر تحقق: ${fmtDate(new Date(state.app.lastUpdateCheck))}` : 'لم يتم التحقق بعد', '<span class="upd-state" data-upd-state></span>')}
+      <div class="set-row"><span class="set-ic">${icon('refresh')}</span><div class="set-txt"><b>التحقق التلقائي من التحديثات</b><small>مرة يومياً عند الاتصال بالإنترنت</small></div><button class="switch ${state.app.autoUpdate ? 'on' : ''}" role="switch" aria-checked="${state.app.autoUpdate}" data-act="set-autoupd"><i></i></button></div>
+      <p class="vpn-note">${icon('info')} ${VPN_NOTE}</p>
+    </section>
+    <section class="card set-card">
+      <h2 class="set-title">${icon('book')} المصادر والتراخيص</h2>
+      <ul class="src-list">
+        <li>نص المصحف وبياناته: مشروع <b>Tanzil</b> (tanzil.net)، بترخيص ${num("CC BY 3.0")} ودون أي تعديل.</li>
+        <li>الأذكار والأدعية: مطابقة لكتاب «حصن المسلم» للشيخ سعيد بن علي القحطاني رحمه الله.</li>
+        <li>مقاصد السور والمكي والمدني: «المختصر في تفسير القرآن الكريم»، مركز تفسير للدراسات القرآنية.</li>
+        <li>المساجد القريبة: بيانات OpenStreetMap المفتوحة (ODbL).</li>
+        <li>الخطوط: IBM Plex Sans Arabic وAmiri، بترخيص SIL Open Font License.</li>
+      </ul>
+    </section>
+    <section class="card about">${devCard()}</section>`,
+};
 
 export function whatsNewHtml(onlyLatest = false) {
   return (onlyLatest ? CHANGELOG.slice(0, 1) : CHANGELOG).map((c) => `
@@ -84,7 +111,7 @@ export function updateHelp() {
         <button class="btn btn-soft wide sm-btn" data-act="data-export">${icon('download')} حفظ نسخة احتياطية الآن</button></li>
       <li>اضغط «تنزيل وتثبيت»؛ يُنزَّل التحديث داخل سكينة ثم يفتح المثبّت، وتبقى بياناتك كما هي.</li>
       <li>إن ظهرت رسالة مثل «لم يتم تثبيت التطبيق» أو «تعارض مع حزمة موجودة»، أو حدثت مشكلة بعد التحديث: <b>احذف النسخة القديمة من الهاتف ثم ثبّت الجديدة</b>.</li>
-      <li>بعد التثبيت افتح <b>المزيد ← الإعدادات ← البيانات ← استيراد نسخة</b> واختر ملف النسخة الاحتياطية لاسترجاع كل شيء.</li>
+      <li>بعد التثبيت افتح <b>المزيد ← الإعدادات ← البيانات والخصوصية ← استيراد نسخة</b> واختر ملف النسخة الاحتياطية لاسترجاع كل شيء.</li>
     </ol>
   </div>`;
 }
@@ -138,6 +165,7 @@ export function showUpdateSheet() {
 
 export const actions = {
   'upd-show': () => showUpdateSheet(),
+  'set-autoupd': () => { state.app.autoUpdate = !state.app.autoUpdate; save(); refresh(); },
   'upd-check': async (el) => {
     const st = el.querySelector('[data-upd-state]');
     if (st) st.innerHTML = '<span class="spinner sm"></span>';
@@ -145,7 +173,10 @@ export const actions = {
     if (st) st.textContent = '';
     if (r === 'update') { refresh(); showUpdateSheet(); } else if (r === 'latest') { toast(`أنت على أحدث إصدار (${num(VERSION)})`); refresh(); } else {
       openSheet(`<div class="center"><div class="about-logo">${icon('info')}</div><h3 class="sheet-title">تعذّر التحقق من التحديثات</h3></div>
-        <p class="sheet-text">تأكد من اتصالك بالإنترنت. ${VPN_NOTE}</p><button class="btn btn-primary wide" data-close>حسناً</button>`);
+        <p class="sheet-text">تأكد من اتصالك بالإنترنت. ${VPN_NOTE}</p>
+        <div class="row-btns"><button class="btn btn-primary" data-retry>${icon('refresh')} إعادة المحاولة</button><button class="btn btn-ghost" data-close>إغلاق</button></div>`, {
+        onMount: (body, close) => body.querySelector('[data-retry]').addEventListener('click', () => { close(); setTimeout(() => actions['upd-check'](el), 200); }),
+      });
     }
   },
   'app-share': async () => {

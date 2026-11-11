@@ -237,3 +237,91 @@ test('المساجد القريبة: المسافة والاتجاه وتحوي�
   assert.equal(got.length, 2);
   await assert.rejects(fetchMosques(me, 2000, () => Promise.reject(new Error('offline'))));
 });
+
+// ---------- الإصدار ١٫٥ ----------
+import { readFileSync } from 'node:fs';
+import { nightParts } from '../src/views/qiyam.js';
+import { inQuiet } from '../src/services.js';
+import { homeLayout, visibleCards, HOME_CARDS, SHORTCUTS, MAX_SHORTCUTS, DEFAULT_SHORTCUTS } from '../src/home-layout.js';
+
+test('قيام الليل: النصف والثلث الأخير من المغرب إلى الفجر', () => {
+  const p = nightParts('17:00', '05:00');
+  assert.equal(p.len, 720);
+  assert.equal(p.half, '23:00');
+  assert.equal(p.lastThird, '01:00');
+  // ليل صيفي قصير: ١٩:٣٠ ← ٠٣:٣٠ = ٨ ساعات، والثلث الأخير يبدأ ٠٠:٥٠
+  const s = nightParts('19:30', '03:30');
+  assert.equal(s.len, 480);
+  assert.equal(s.half, '23:30');
+  assert.equal(s.lastThird, '00:50');
+});
+
+test('ساعات الهدوء: داخل الفترة وعبر منتصف الليل', () => {
+  const at = (h, m = 0) => new Date(2026, 10, 11, h, m);
+  const night = { on: true, from: '23:00', to: '05:00' };
+  assert.equal(inQuiet(at(23, 30), night), true);
+  assert.equal(inQuiet(at(2), night), true);
+  assert.equal(inQuiet(at(5), night), false);
+  assert.equal(inQuiet(at(22, 59), night), false);
+  const day = { on: true, from: '13:00', to: '15:00' };
+  assert.equal(inQuiet(at(14), day), true);
+  assert.equal(inQuiet(at(16), day), false);
+  assert.equal(inQuiet(at(23, 30), { ...night, on: false }), false);
+});
+
+test('ساعات الهدوء تمنع الفقاعة والتذكيرات المخصّصة ولا تمنع الصلاة', () => {
+  const saved = JSON.stringify(state.settings);
+  const savedRem = state.reminders;
+  try {
+    state.settings.overlay = true;
+    state.settings.notif.morning = { on: true, time: '06:30' };
+    state.settings.notif.evening = { on: false, time: '17:00' };
+    state.settings.notif.sleep = { on: false, time: '22:30' };
+    state.reminders = [{ id: 'r1', kind: 'qiyam', on: true, time: '03:30', mode: 'day' }];
+    const now = new Date(2026, 10, 11, 12, 0);
+    const before = buildOverlays(now).length;
+    const remBefore = buildNotifications(now).filter((n) => n.route === '#/quran').length;
+    assert.ok(before > 0 && remBefore > 0);
+    state.settings.notif.prayers = true;
+    const allBefore = buildNotifications(now).filter((n) => n.route !== '#/quran').length;
+    state.settings.quiet = { on: true, from: '02:00', to: '07:00' };
+    assert.equal(buildOverlays(now).length, 0, 'الفقاعة في ساعات الهدوء');
+    assert.equal(buildNotifications(now).filter((n) => n.route !== '#/quran').length, allBefore, 'تنبيهات الصلاة والأذكار لا تتأثر بساعات الهدوء');
+    assert.equal(buildNotifications(now).filter((n) => n.route === '#/quran').length, 0, 'تذكير قيام الليل في ساعات الهدوء');
+  } finally {
+    Object.assign(state.settings, JSON.parse(saved));
+    state.reminders = savedRem;
+  }
+});
+
+test('تخصيص الرئيسية: الترتيب والإخفاء والاختصارات وبطاقات التحديثات الجديدة', () => {
+  const def = homeLayout(null);
+  assert.deepEqual(def.order, HOME_CARDS.map((c) => c.id));
+  assert.deepEqual(def.shortcuts, DEFAULT_SHORTCUTS);
+  // ترتيب محفوظ قديم ينقصه بطاقة وفيه معرّف لم يعد موجوداً
+  const l = homeLayout({ order: ['streak', 'gone', 'prayer'], hidden: ['ayah', 'gone'], shortcuts: ['qibla', 'qibla', 'nope', ...SHORTCUTS.map((x) => x.id)] });
+  assert.deepEqual(l.order.slice(0, 2), ['streak', 'prayer']);
+  assert.equal(l.order.length, HOME_CARDS.length);
+  assert.deepEqual(l.hidden, ['ayah']);
+  assert.equal(l.shortcuts[0], 'qibla');
+  assert.equal(l.shortcuts.length, MAX_SHORTCUTS);
+  assert.equal(new Set(l.shortcuts).size, l.shortcuts.length);
+  assert.ok(visibleCards({ order: [], hidden: ['ayah'], shortcuts: [] }).indexOf('ayah') === -1);
+  // كل اختصار يفتح صفحة موجودة في التطبيق
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  for (const s of SHORTCUTS) {
+    const route = s.to.replace(/^#\//, '').split('/')[0];
+    assert.ok(new RegExp(`\\b${route}\\b`).test(main.match(/const ROUTES = \{[^}]*\}/)[0]) || route === 'read', `اختصار ${s.id} يفتح صفحة غير موجودة`);
+  }
+});
+
+test('سلامة إعدادات ١٫٥: التأجيل والهدوء والتخصيص والورد الخاص', () => {
+  const st = sanitize(JSON.parse(JSON.stringify({ ...DEFAULTS, settings: { ...DEFAULTS.settings, snooze: [0, 15, 15, 'x', 9999, 5], quiet: { on: 1, from: '25:00', to: '05:00' }, home: { order: 'bad' } }, mywird: [{ id: 'morning-0', n: 0 }, { n: 3 }, 'x'], qiyam: { manual: 1, maghrib: '17:00', fajr: 'x' } })));
+  assert.deepEqual(st.settings.snooze, [5, 15]);
+  assert.deepEqual(st.settings.quiet, { on: true, from: '23:00', to: '05:00' });
+  assert.equal(st.settings.home, null);
+  assert.deepEqual(st.mywird, [{ id: 'morning-0', n: 1 }]);
+  assert.equal(st.qiyam, null);
+  const empty = sanitize(JSON.parse(JSON.stringify({ ...DEFAULTS, settings: { ...DEFAULTS.settings, snooze: [] } })));
+  assert.deepEqual(empty.settings.snooze, [5, 15, 30, 60]);
+});

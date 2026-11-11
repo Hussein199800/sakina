@@ -7,9 +7,10 @@ import { PRAYERS, METHODS } from '../prayer.js';
 import { CATEGORY_BY_ID } from '../data/adhkar.js';
 import { FEELINGS, DAILY_AYAT, DAILY_AHADITH, TASBIHAT } from '../data/spirit.js';
 import { NAMES } from '../data/names.js';
+import { homeLayout, visibleCards, SHORTCUTS } from '../home-layout.js';
 import { location, localToday, hijriOf, nextPrayer, dayPeriod, GREETINGS, suggestedWird, catProgress, lastWeek, streak, methodKey } from '../services.js';
 import { fmtTime, fmtCountdown, ring, bar, pct, daily, refresh } from './common.js';
-import { openSheet, toast, tapFeedback, THEMES, dhikrText } from '../ui.js';
+import { openSheet, toast, tapFeedback, THEMES, activeTheme, dhikrText } from '../ui.js';
 import { registerText, toolsRow } from './dhikr.js';
 import { todayRange, readToday, progress as khatmaProgress } from '../khatma.js';
 import { suraOf, suraName } from '../quran.js';
@@ -88,79 +89,109 @@ function prayerCard() {
   </section>`;
 }
 
-function moods() {
-  return `<section class="block">
-    <div class="block-head"><h2>بماذا يشعر قلبك الآن؟</h2><span class="muted">اختر حالتك</span></div>
+function feelingsCard() {
+  return `<section class="block feel-home">
+    <div class="block-head"><h2>بماذا يشعر قلبك؟</h2><button class="link-btn" data-act="go" data-to="#/library/feel">صيدلية الروح ${icon('chevron')}</button></div>
     <div class="mood-scroll">${FEELINGS.map((f) => `
-      <button class="mood tone-${f.tone}" data-act="mood" data-id="${f.id}">
+      <button class="mood tone-${f.tone}" data-act="go" data-to="#/feel/${f.id}">
         <span class="mood-ic">${icon(f.icon)}</span><span>${f.label}</span>
       </button>`).join('')}
     </div>
   </section>`;
 }
 
-function bento() {
-  const wird = suggestedWird();
-  const cat = CATEGORY_BY_ID[wird];
-  const prog = catProgress(wird);
-  const mProg = catProgress('morning');
-  const eProg = catProgress('evening');
-  const [ayah, ayahRef] = daily(DAILY_AYAT);
-  const [hadith, hadithRef] = daily(DAILY_AHADITH, 11);
-  registerText('ayah-today', { text: `﴿${ayah}﴾`, source: `سورة ${ayahRef}`, title: 'آية اليوم' });
-  registerText('hadith-today', { text: `«${hadith}»`, source: hadithRef, title: 'حديث اليوم' });
-  const name = daily(NAMES, 3);
-  const tb = TASBIHAT.find((x) => x.id === state.tasbih.selected) || TASBIHAT[0];
-  const week = lastWeek();
-  const h = today();
-  return `<section class="bento">
-    <button class="tile tile-wird span2" data-act="go" data-to="#/read/${wird}">
+function shortcutsCard() {
+  const ids = homeLayout().shortcuts;
+  const list = ids.map((id) => SHORTCUTS.find((x) => x.id === id)).filter(Boolean);
+  return `<section class="block">
+    <div class="block-head"><h2>اختصاراتي</h2><button class="link-btn" data-act="go" data-to="#/customize">تعديل ${icon('chevron')}</button></div>
+    ${list.length ? `<div class="sc-grid">${list.map((x) => `<button class="sc tone-${x.tone}" data-act="go" data-to="${x.to}"><span class="cat-ic">${icon(x.icon)}</span><b>${x.label}</b></button>`).join('')}</div>`
+    : `<button class="btn btn-soft wide" data-act="go" data-to="#/customize">${icon('plus')} أضف اختصارات</button>`}
+  </section>`;
+}
+
+/** بطاقات الرئيسية: tile = تُعرض داخل شبكة البطاقات */
+const CARDS = {
+  prayer: () => ({ html: prayerCard() }),
+  shortcuts: () => ({ html: shortcutsCard() }),
+  feelings: () => ({ html: feelingsCard() }),
+  wird: () => {
+    const wird = suggestedWird();
+    const cat = CATEGORY_BY_ID[wird];
+    const prog = catProgress(wird);
+    return { tile: true, html: `<button class="tile tile-wird span2" data-act="go" data-to="#/read/${wird}">
       <div class="tw-main">
         <span class="eyebrow">${icon('sparkle')} وردك الآن</span>
         <h3>${cat.title}</h3>
         <p>${prog >= 1 ? 'أتممته اليوم، تقبّل الله منك' : prog > 0 ? 'تابع من حيث توقفت' : cat.sub}</p>
         <div class="tw-bars">
-          <span><small>الصباح</small>${bar(mProg)}</span>
-          <span><small>المساء</small>${bar(eProg)}</span>
+          <span><small>الصباح</small>${bar(catProgress('morning'))}</span>
+          <span><small>المساء</small>${bar(catProgress('evening'))}</span>
         </div>
       </div>
       <div class="tw-ring">${ring(prog, 92, 7)}<b>${pct(prog)}</b></div>
-    </button>
-
-    ${quranTile()}
-
-    <article class="tile tile-ayah span2">
+    </button>` };
+  },
+  quran: () => ({ tile: true, html: quranTile() }),
+  ayah: () => {
+    const [ayah, ayahRef] = daily(DAILY_AYAT);
+    registerText('ayah-today', { text: `﴿${ayah}﴾`, source: `سورة ${ayahRef}`, title: 'آية اليوم' });
+    return { tile: true, html: `<article class="tile tile-ayah span2">
       <span class="eyebrow">${icon('book')} آية اليوم</span>
       <p class="quran">﴿${dhikrText(ayah)}﴾</p>
       <div class="tile-foot"><small>سورة ${num(ayahRef)}</small>${toolsRow('data-key="ayah-today"')}</div>
-    </article>
-
-    <button class="tile tile-mini tone-teal" data-act="go" data-to="#/tasbih">
+    </article>` };
+  },
+  tasbih: () => {
+    const tb = TASBIHAT.find((x) => x.id === state.tasbih.selected) || TASBIHAT[0];
+    return { tile: true, html: `<button class="tile tile-mini tone-teal" data-act="go" data-to="#/tasbih">
       <span class="mini-ic">${icon('beads')}</span>
       <b>المسبحة</b>
       <small>${esc(dhikrText(shorten(tb.t, 3)))}</small>
-      <span class="mini-num">${num(h.t)} <small>اليوم</small></span>
-    </button>
-    <button class="tile tile-mini tone-amber" data-act="go" data-to="#/names">
+      <span class="mini-num">${num(today().t)} <small>اليوم</small></span>
+    </button>` };
+  },
+  names: () => {
+    const name = daily(NAMES, 3);
+    return { tile: true, html: `<button class="tile tile-mini tone-amber" data-act="go" data-to="#/names">
       <span class="mini-ic">${icon('star')}</span>
       <b>أسماء الله الحسنى</b>
       <small>اسم اليوم</small>
       <span class="mini-name">${name[0]}</span>
-    </button>
-
-    <article class="tile tile-hadith span2">
+    </button>` };
+  },
+  hadith: () => {
+    const [hadith, hadithRef] = daily(DAILY_AHADITH, 11);
+    registerText('hadith-today', { text: `«${hadith}»`, source: hadithRef, title: 'حديث اليوم' });
+    return { tile: true, html: `<article class="tile tile-hadith span2">
       <span class="eyebrow">${icon('sparkle')} حديث اليوم</span>
       <p class="hadith">«${dhikrText(hadith)}»</p>
       <div class="tile-foot"><small>${num(hadithRef)}</small>${toolsRow('data-key="hadith-today"')}</div>
-    </article>
-
-    ${mosqueTile()}
-
-    <button class="tile tile-streak span2" data-act="go" data-to="#/journal">
-      <div><span class="eyebrow">${icon('flame')} أيام الالتزام</span><b class="streak-num">${num(streak())}</b><small>${streak() === 1 ? 'يوم التزام' : 'أيام التزام متتالية'}</small></div>
+    </article>` };
+  },
+  mosque: () => ({ tile: true, html: mosqueTile() }),
+  streak: () => {
+    const week = lastWeek();
+    const n = streak();
+    return { tile: true, html: `<button class="tile tile-streak span2" data-act="go" data-to="#/journal">
+      <div><span class="eyebrow">${icon('flame')} أيام الالتزام</span><b class="streak-num">${num(n)}</b><small>${n === 1 ? 'يوم التزام' : 'أيام التزام متتالية'}</small></div>
       <div class="week-stars">${week.map((d) => `<span class="ws ${d.rec.m && d.rec.e ? 'full' : d.rec.m || d.rec.e ? 'half' : ''} ${d.isToday ? 'today' : ''}">${icon('star')}<small>${WEEKDAY_LETTERS[d.date.getDay()]}</small></span>`).join('')}</div>
-    </button>
-  </section>`;
+    </button>` };
+  },
+};
+
+/** يبني الرئيسية بالترتيب المحفوظ؛ البطاقات المتجاورة من نوع tile تُجمع في شبكة واحدة */
+function cardsHtml() {
+  let out = '';
+  let tiles = '';
+  const flush = () => { if (tiles) { out += `<section class="bento">${tiles}</section>`; tiles = ''; } };
+  for (const id of visibleCards()) {
+    const c = CARDS[id] && CARDS[id]();
+    if (!c || !c.html) continue;
+    if (c.tile) tiles += c.html; else { flush(); out += c.html; }
+  }
+  flush();
+  return out;
 }
 
 export function render() {
@@ -169,7 +200,7 @@ export function render() {
   const hj = hijriOf(g);
   const greet = GREETINGS[period];
   const wird = suggestedWird();
-  const theme = THEMES[state.settings.theme];
+  const theme = THEMES[activeTheme()];
   return `<section class="sky sky-${period}">
       ${sky(period)}
       <div class="sky-top">
@@ -189,9 +220,8 @@ export function render() {
       </button>
     </section>
     <div class="home-body">
-      ${prayerCard()}
-      ${moods()}
-      ${bento()}
+      ${cardsHtml()}
+      <button class="customize-link" data-act="go" data-to="#/customize">${icon('grid')} تخصيص الرئيسية</button>
       <p class="dua-credit">دعوة لحسين محمد علي الطويل</p>
     </div>`;
 }
@@ -208,59 +238,12 @@ export function mount(el) {
 }
 export function unmount() { clearInterval(timer); }
 
-function moodSheet(f) {
-  let left = f.count;
-  registerText(`mood-ayah-${f.id}`, { text: f.ayah, source: f.ayahRef, title: f.label });
-  registerText(`mood-dua-${f.id}`, { text: f.dua, source: f.duaRef, title: f.label });
-  openSheet(`
-    <div class="mood-head tone-${f.tone}"><span class="mood-ic big">${icon(f.icon)}</span>
-      <div><small>حين تشعر بـ</small><h3>${f.label}</h3></div></div>
-    <div class="mood-block">
-      <span class="eyebrow">${icon('book')} آية تواسيك</span>
-      <p class="quran">${dhikrText(f.ayah)}</p>
-      <div class="tile-foot"><small>${num(f.ayahRef)}</small>${toolsRow(`data-key="mood-ayah-${f.id}"`)}</div>
-    </div>
-    <div class="mood-block">
-      <span class="eyebrow">${icon('hands')} دعاء مأثور</span>
-      <p class="dhikr-sm">${dhikrText(f.dua)}</p>
-      <div class="mood-counter">
-        <button class="counter-btn" data-mood-tap aria-label="عدّ">
-          ${ring(0, 76, 6)}<b data-left>${num(left)}</b>
-        </button>
-        <div><small>${num(f.duaRef)}</small><p class="muted" data-hint>اضغط على العداد مع كل تكرار</p></div>
-      </div>
-      ${toolsRow(`data-key="mood-dua-${f.id}"`)}
-    </div>
-    <div class="mood-message">
-      <span class="eyebrow">${icon('leaf')} رسالة سكينة وتدبّر</span>
-      <p>${f.message}</p>
-    </div>
-    ${f.cat && CATEGORY_BY_ID[f.cat] ? `<button class="btn btn-soft wide" data-act="go" data-to="#/read/${f.cat}">${icon(CATEGORY_BY_ID[f.cat].icon)} أذكار ${CATEGORY_BY_ID[f.cat].title}</button>` : ''}`, {
-    cls: 'sheet-tall',
-    onMount: (body) => {
-      const btn = body.querySelector('[data-mood-tap]');
-      btn.addEventListener('click', () => {
-        if (left <= 0) return;
-        left -= 1;
-        tapFeedback(left ? 'tap' : 'item');
-        body.querySelector('[data-left]').textContent = left ? num(left) : '✓';
-        btn.querySelector('.ring').outerHTML = ring((f.count - left) / f.count, 76, 6);
-        if (!left) {
-          btn.classList.add('done');
-          body.querySelector('[data-hint]').textContent = 'تقبّل الله دعاءك وأنزل على قلبك السكينة';
-          today().r += f.count;
-          save();
-        }
-      });
-    },
-  });
-}
-
 export const actions = {
-  mood: (el) => moodSheet(FEELINGS.find((f) => f.id === el.dataset.id)),
+  mood: (el) => { window.location.hash = `#/feel/${el.dataset.id}`; },
   'theme-cycle': () => {
     const keys = Object.keys(THEMES);
-    state.settings.theme = keys[(keys.indexOf(state.settings.theme) + 1) % keys.length];
+    state.settings.theme = keys[(keys.indexOf(activeTheme()) + 1) % keys.length];
+    state.settings.followSystem = false;
     save();
     document.dispatchEvent(new Event('app:theme'));
     toast(`ثيم ${THEMES[state.settings.theme].name}`, 'palette');

@@ -47,7 +47,7 @@ const server = http.createServer((req, res) => {
     // أخطاء تحميل الشبكة متوقعة في اختبار انقطاع خدمة الخرائط، ولها فحص خاص
     page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(`${theme}: ${m.text()}`); });
     const routes = theme === 'oasis'
-      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques', 'suras', 'suras/112', 'read/anger', 'read/distress']
+      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques', 'suras', 'suras/112', 'read/anger', 'read/distress', 'library/awrad', 'library/feel', 'feel/angry', 'feel/sick', 'qiyam', 'customize', 'mywird', 'about', 'read/istighfar', 'read/mywird']
       : ['home', 'quran', 'mushaf/2', 'read/morning', 'more', 'suras/96'];
     for (const r of routes) {
       await page.goto(`${base}#/${r}`);
@@ -71,9 +71,10 @@ const server = http.createServer((req, res) => {
       if (c.trim() !== '٥') errors.push(`المسبحة لم تعدّ: ${c}`);
       await page.goto(`${base}#/home`);
       await page.waitForTimeout(300);
-      await page.click('[data-act="mood"]');
+      await page.click('.mood-scroll [data-to="#/feel/grateful"]');
       await page.waitForTimeout(500);
-      if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-mood-sheet.png') });
+      if (!/#\/feel\/grateful$/.test(page.url())) errors.push(`بطاقة المشاعر لم تفتح صفحة الحالة: ${page.url()}`);
+      if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-feel.png') });
       await page.click('[data-mood-tap]');
       await page.goto(`${base}#/library`);
       await page.fill('#lib-q', 'استغفر');
@@ -182,16 +183,98 @@ const server = http.createServer((req, res) => {
       const s112 = await page.textContent('#sura-112');
       if (s112.indexOf('أُبيّ بن كعب') === -1) errors.push('زر النبذة لا يفتح سورة الإخلاص مفتوحة');
       // أذكار المواقف في تبويب الأذكار، والرابط من المشاعر
-      await page.goto(`${base}#/library`);
+      await page.goto(`${base}#/library/daily`);
       await page.fill('#lib-q', '');
       await page.waitForTimeout(400);
       const lib = await page.textContent('#view');
       for (const w of ['أذكار المواقف والأحوال', 'عند الغضب', 'الريح والرعد', 'الهمّ والكرب']) if (lib.indexOf(w) === -1) errors.push(`تبويب الأذكار لا يعرض «${w}»`);
+      // ١٫٥: تبويبات الأذكار الفرعية
+      await page.click('[data-act="lib-tab"][data-k="awrad"]');
+      await page.waitForTimeout(400);
+      const aw = await page.textContent('#view');
+      for (const w of ['ورد الاستغفار', 'ورد التكبير والتهليل', 'ورد التسبيح', 'وردي الخاص']) if (aw.indexOf(w) === -1) errors.push(`تبويب الأوراد لا يعرض «${w}»`);
+      await page.click('[data-act="lib-tab"][data-k="feel"]');
+      await page.waitForTimeout(400);
+      const fc = await page.$$eval('.feel-card', (x) => x.length);
+      if (fc < 11) errors.push(`صيدلية الروح فيها ${fc} حالات فقط`);
+      // وردي الخاص: إضافة ذكر ثم قراءته
+      await page.goto(`${base}#/mywird`);
+      await page.waitForTimeout(300);
+      await page.click('[data-act="mw-add"]');
+      await page.waitForTimeout(400);
+      await page.fill('.sheet [data-q]', 'سبحان الله وبحمده');
+      await page.waitForTimeout(200);
+      await page.click('.sheet .mw-pick [data-id]');
+      await page.waitForTimeout(400);
+      await page.click('[data-act="mw-n"][data-d="1"]');
+      await page.waitForTimeout(300);
+      const mw = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).mywird);
+      if (!mw || mw.length !== 1 || !(mw[0].n > 1)) errors.push(`وردي الخاص لم يُحفظ: ${JSON.stringify(mw)}`);
+      await page.goto(`${base}#/read/mywird`);
+      await page.waitForTimeout(400);
+      if ((await page.$$('.reader-empty')).length) errors.push('قراءة وردي الخاص تعرض صفحة فارغة');
+      // تخصيص الرئيسية: إخفاء بطاقة وتحريكها وإضافة اختصار
+      await page.goto(`${base}#/customize`);
+      await page.waitForTimeout(300);
+      await page.click('[data-act="cz-toggle"][data-id="ayah"]');
+      await page.waitForTimeout(200);
+      await page.click('[data-act="cz-move"][data-id="streak"][data-d="-1"]');
+      await page.waitForTimeout(200);
+      await page.click('[data-act="cz-sc"][data-id="zakat"]');
+      await page.waitForTimeout(300);
       await page.goto(`${base}#/home`);
       await page.waitForTimeout(400);
-      await page.click('[data-act="mood"][data-id="anxious"]');
+      if (await page.$('.tile-ayah')) errors.push('بطاقة آية اليوم ما زالت ظاهرة بعد إخفائها');
+      if (!(await page.$('.sc-grid [data-to="#/zakat"]'))) errors.push('الاختصار المضاف لا يظهر في الرئيسية');
+      // السحب بالمقبض يغيّر الترتيب
+      await page.goto(`${base}#/customize`);
+      await page.waitForTimeout(300);
+      const first = await page.$eval('.cz-row', (r) => r.dataset.id);
+      const hb = await (await page.$('.cz-row:nth-child(1) [data-handle]')).boundingBox();
+      const tb = await (await page.$('.cz-row:nth-child(4)')).boundingBox();
+      await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(hb.x + hb.width / 2, tb.y + tb.height - 4, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+      const ord = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).settings.home.order);
+      if (ord[0] === first) errors.push(`السحب لم يغيّر الترتيب: ${ord.slice(0, 4)}`);
+      if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-customize.png'), fullPage: true });
+      await page.click('[data-act="cz-reset"]');
+      await page.waitForTimeout(400);
+      await page.click('.sheet .btn-primary');
+      await page.waitForTimeout(300);
+      const after = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')));
+      if (after.settings.home !== null) errors.push('الاستعادة لم تُرجع الترتيب الافتراضي');
+      if (!after.mywird || after.mywird.length !== 1) errors.push('استعادة الرئيسية حذفت بيانات أخرى');
+      // قيام الليل: إدخال يدوي
+      await page.goto(`${base}#/qiyam`);
+      await page.waitForTimeout(300);
+      await page.click('[data-act="qy-mode"][data-m="manual"]');
+      await page.waitForTimeout(300);
+      const qy = await page.textContent('.qy-big');
+      if (!/[٠-٩]/.test(qy)) errors.push(`قيام الليل لا يعرض وقتاً: ${qy}`);
+      // الإعدادات: مدد التأجيل وساعات الهدوء
+      await page.goto(`${base}#/settings`);
+      await page.waitForTimeout(300);
+      await page.click('[data-act="set-snooze"][data-m="10"]');
+      await page.waitForTimeout(200);
+      if ((await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).settings.snooze)).length !== 4) errors.push('أُضيفت مدة خامسة للتأجيل');
+      await page.click('[data-act="set-snooze"][data-m="60"]');
+      await page.waitForTimeout(200);
+      await page.click('[data-act="set-snooze"][data-m="10"]');
+      await page.waitForTimeout(200);
+      await page.click('[data-act="set-quiet"]');
+      await page.waitForTimeout(300);
+      const st = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).settings);
+      if (st.snooze.join() !== '5,10,15,30') errors.push(`مدد التأجيل: ${st.snooze}`);
+      if (!st.quiet.on) errors.push('ساعات الهدوء لم تُفعَّل');
+      if (!(await page.$('[data-quiet="from"]'))) errors.push('لا يظهر وقت بداية الهدوء');
+      await page.goto(`${base}#/home`);
+      await page.waitForTimeout(400);
+      await page.click('.mood-scroll [data-to="#/feel/anxious"]');
       await page.waitForTimeout(500);
-      await page.click('.sheet [data-to="#/read/fear"]');
+      await page.click('.feel-page [data-to="#/read/fear"]');
       await page.waitForTimeout(500);
       if (!/#\/read\/fear$/.test(page.url())) errors.push(`زر الأذكار من المشاعر لم يفتح باب الخوف: ${page.url()}`);
 

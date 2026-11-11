@@ -21,6 +21,10 @@ public final class OverlayScheduler {
     static final String EXTRA_BODY = "body";
     static final String EXTRA_ROUTE = "route";
     static final String ACTION_SHOW = "com.altaweel.sakina.SHOW_BUBBLE";
+    static final String KEY_SNOOZE = "snooze";
+    static final String KEY_QUIET = "quiet";
+    /** معرّف ثابت للتأجيل: تأجيل جديد يستبدل السابق فلا تتكرر الفقاعة */
+    static final int SNOOZE_ID = 6999;
 
     private OverlayScheduler() {}
 
@@ -42,6 +46,44 @@ public final class OverlayScheduler {
             }
         } catch (Exception ignored) { }
         p.edit().putString(KEY_ITEMS, json == null ? "[]" : json).putString(KEY_IDS, ids.toString()).apply();
+    }
+
+    /** إعدادات الفقاعة من التطبيق: مدد التأجيل بالدقائق، وساعات الهدوء {on, from, to} بالدقائق من منتصف الليل */
+    public static void config(Context ctx, String snoozeJson, String quietJson) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_SNOOZE, snoozeJson == null ? "[5,15,30,60]" : snoozeJson)
+            .putString(KEY_QUIET, quietJson == null ? "{}" : quietJson).apply();
+    }
+
+    static int[] snoozeMinutes(Context ctx) {
+        try {
+            JSONArray a = new JSONArray(ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_SNOOZE, "[5,15,30,60]"));
+            int n = 0;
+            int[] tmp = new int[a.length()];
+            for (int i = 0; i < a.length(); i++) { int m = a.getInt(i); if (m > 0 && m <= 720) tmp[n++] = m; }
+            if (n > 0) { int[] out = new int[n]; System.arraycopy(tmp, 0, out, 0, n); return out; }
+        } catch (Exception ignored) { }
+        return new int[] { 5, 15, 30, 60 };
+    }
+
+    /** هل الوقت الحالي داخل ساعات الهدوء؟ (تمتد عبر منتصف الليل إذا كانت البداية بعد النهاية) */
+    static boolean inQuiet(Context ctx, long at) {
+        try {
+            JSONObject q = new JSONObject(ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_QUIET, "{}"));
+            if (!q.optBoolean("on", false)) return false;
+            int from = q.optInt("from", 0), to = q.optInt("to", 0);
+            java.util.Calendar c = java.util.Calendar.getInstance();
+            c.setTimeInMillis(at);
+            int m = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE);
+            return from <= to ? (m >= from && m < to) : (m >= from || m < to);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** إعادة إظهار التذكير نفسه بعد مدة يختارها المستخدم */
+    public static void snooze(Context ctx, int minutes, String title, String body, String route) {
+        set(ctx, SNOOZE_ID, System.currentTimeMillis() + minutes * 60_000L, title, body, route);
     }
 
     /** بعد إعادة تشغيل الهاتف أو تحديث التطبيق */

@@ -893,3 +893,78 @@ textarea.plain { font-family: var(--ui) !important; font-size: 16px !important; 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- الإعدادات ١٫٥ ---------- */
+.set-sub { display: flex; flex-direction: column; gap: 4px; padding: 12px 2px; border-top: 1px solid var(--line); }
+.set-sub > b { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.set-sub > b .ic { width: 18px; height: 18px; color: var(--primary); }
+.set-sub > small { color: var(--muted); font-size: 12.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chip.on { background: var(--primary); color: var(--on-primary); }
+.quiet-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 2px 12px; color: var(--muted); }
+.perm-info { margin: 6px 0 4px; font-size: 13.5px; color: var(--muted); }
+.perm-info summary { cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); min-height: 44px; }
+.perm-info summary .ic { width: 18px; height: 18px; color: var(--secondary); }
+.perm-info ul { padding-right: 18px; margin: 4px 0 8px; line-height: 1.9; }
+.set-row.danger b, .set-row.danger .set-ic { color: var(--rose-fg); }
+.src-list { padding-right: 18px; margin: 4px 0; line-height: 1.9; font-size: 14px; color: var(--muted); }
+.dot-badge { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--secondary); color: #fff; margin-inline-end: 6px; }
+/* قيام الليل */
+.qy-page { display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px; }
+.qy-hero { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 16px; }
+.qy-big { font-size: 40px; font-weight: 700; color: var(--primary); line-height: 1.3; }
+.qy-hero small { color: var(--muted); }
+.qy-grid { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; }
+.qy-cell { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.qy-cell small { color: var(--muted); font-size: 12.5px; }
+.qy-cell b { font-size: 18px; }
+.qy-note { font-size: 14px; line-height: 1.9; color: var(--muted); margin: 4px 0; }
+/* تخصيص الرئيسية */
+.cz-page { display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px; }
+.cz-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+.cz-row { display: flex; align-items: center; gap: 8px; padding: 8px 2px; min-height: 56px; background: var(--card); border-top: 1px solid var(--line); }
+.cz-row.off .cz-label, .cz-row.off .set-ic { opacity: .45; }
+.cz-row.dragging { box-shadow: 0 8px 24px rgba(0,0,0,.14); border-radius: 14px; position: relative; z-index: 2; }
+.cz-handle { width: 40px; height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--faint); cursor: grab; touch-action: none; flex: none; }
+.cz-label { flex: 1; min-width: 0; font-size: 15px; }
+.icon-btn[disabled] { opacity: .3; }
+.chips .chip small { font-size: 11px; opacity: .8; }
+.customize-link { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin: 16px 0 4px; color: var(--muted); font-size: 14px; }
+.customize-link .ic { width: 18px; height: 18px; }
+.link-btn { display: inline-flex; align-items: center; gap: 2px; font-size: 13.5px; color: var(--primary); min-height: 36px; }
+.link-btn .ic { width: 16px; height: 16px; }
+.sc-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 8px; }
+.sc { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); text-align: center; min-height: 92px; }
+.sc b { font-size: 12.5px; font-weight: 600; line-height: 1.35; }
+.sc .cat-ic { width: 44px; height: 44px; border-radius: 15px; background: var(--tbg); color: var(--tfg); display: inline-flex; align-items: center; justify-content: center; }
+.feel-page { display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px; }
+.feel-grid { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; }
+.feel-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); text-align: right; min-height: 112px; }
+.feel-card .cat-ic { width: 44px; height: 44px; border-radius: 50%; background: var(--tbg); color: var(--tfg); display: inline-flex; align-items: center; justify-content: center; }
+.feel-card b { font-size: 15.5px; }
+.feel-card small { color: var(--muted); font-size: 12.5px; }
+.mw-page { display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px; }
+.mw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.mw-row { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; }
+.mw-txt small { color: var(--secondary); font-size: 12px; }
+.mw-txt p { font-family: var(--quran); font-size: 17px; line-height: 1.8; margin: 2px 0 0; }
+.mw-ctl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mw-ctl .stepper { margin-inline-end: auto; }
+.mw-n { min-width: 44px; text-align: center; font-size: 16px; }
+.mw-pick { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---------- الأجهزة اللوحية والوضع الأفقي: عمودان فأكثر بدل تكبير واجهة الهاتف ---------- */
+@media (min-width: 840px) {
+  #app { max-width: 1040px; }
+  .tabbar { max-width: 680px; }
+  .view { padding-left: 28px; padding-right: 28px; }
+  .bento { grid-template-columns: repeat(4, 1fr); }
+  .more-grid, .cat-rows, .feel-grid { grid-template-columns: repeat(3, 1fr); }
+  .cat-grid { grid-template-columns: repeat(4, 1fr); }
+  .cat-grid.even { grid-template-columns: repeat(3, 1fr); }
+  .sc-grid { grid-template-columns: repeat(8, 1fr); }
+  .si-list, .mw-list { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  .set-card, .qy-page, .cz-page, .feel-page, .wn-page { max-width: 760px; margin-left: auto; margin-right: auto; }
+  .mushaf-page, .reader-body { max-width: 760px; margin-left: auto; margin-right: auto; }
+  .sheet { max-width: 680px; }
+}
