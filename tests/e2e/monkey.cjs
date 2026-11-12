@@ -55,36 +55,40 @@ const SEED = {
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
     const open = async () => { await page.goto(`${base}#/${route}`); await page.waitForTimeout(route.startsWith('mushaf') || route.startsWith('hadith') ? 900 : 350); };
     await open();
-    const sig = (el) => el.evaluate((e) => `${e.dataset.act || ''}|${e.dataset.k || e.dataset.id || e.dataset.to || e.dataset.n || e.dataset.i || ''}|${e.className}`);
-    const targets = await page.$$eval('#view [data-act], #view summary', (els) => els.length);
-    for (let i = 0; i < Math.min(targets, 45); i++) {
-      // إعادة فتح الصفحة قبل كل زر حتى لا تتأثر النتيجة بما سبق
+    // زر واحد أو اثنان من كل نوع إجراء في الصفحة: يغطي كل الوظائف دون تكرار مئات الأزرار المتشابهة
+    const picks = await page.$$eval('#view [data-act], #view summary', (els) => {
+      const seen = {};
+      const out = [];
+      els.forEach((e, i) => {
+        const act = e.dataset.act || 'summary';
+        seen[act] = (seen[act] || 0) + 1;
+        if (seen[act] <= 2) out.push({ i, act, s: `${act}|${e.dataset.k || e.dataset.id || e.dataset.to || e.dataset.n || e.dataset.i || ''}` });
+      });
+      return out;
+    });
+    for (const pk of picks) {
+      if (SKIP.indexOf(pk.act) !== -1) continue;
       if (!page.url().endsWith(`#/${route}`) || await page.$('.sheet')) await open();
-      const els = await page.$$('#view [data-act], #view summary');
-      const el = els[i];
-      if (!el) break;
-      const s = await sig(el).catch(() => '');
-      if (SKIP.some((k) => s.startsWith(`${k}|`))) continue;
-      if (!(await el.isVisible().catch(() => false)) || !(await el.isEnabled().catch(() => false))) continue;
-      where = `${route} ← ${s.slice(0, 60)}`;
-      await el.click({ timeout: 2000 }).catch(() => {});
+      const el = (await page.$$('#view [data-act], #view summary'))[pk.i];
+      if (!el || !(await el.isVisible().catch(() => false)) || !(await el.isEnabled().catch(() => false))) continue;
+      where = `${route} ← ${pk.s.slice(0, 60)}`;
+      await el.click({ timeout: 1500 }).catch(() => {});
       clicks += 1;
-      await page.waitForTimeout(260);
-      // أزرار النافذة السفلية إن فُتحت (دون أزرار الحذف النهائي)
-      const sheetBtns = await page.$$('.sheet button:not([data-close]), .sheet summary');
-      for (let j = 0; j < Math.min(sheetBtns.length, 12); j++) {
+      await page.waitForTimeout(220);
+      // أزرار النافذة السفلية إن فُتحت
+      for (let j = 0; j < 8; j++) {
         const b = (await page.$$('.sheet button:not([data-close]), .sheet summary'))[j];
-        if (!b || !(await b.isVisible().catch(() => false))) continue;
+        if (!b) break;
+        if (!(await b.isVisible().catch(() => false))) continue;
         const bs = await b.evaluate((e) => e.outerHTML.slice(0, 70)).catch(() => '');
-        where = `${route} ← ${s.slice(0, 40)} ← نافذة: ${bs}`;
-        await b.click({ timeout: 1500 }).catch(() => {});
+        where = `${route} ← ${pk.s.slice(0, 40)} ← نافذة: ${bs}`;
+        await b.click({ timeout: 1000 }).catch(() => {});
         clicks += 1;
-        await page.waitForTimeout(160);
-        if (!(await page.$('.sheet'))) break;
+        await page.waitForTimeout(120);
       }
       where = route;
-      await open();
     }
+    console.log(`  #/${route}: ${picks.length} زر`);
     await ctx.close();
   }
   await browser.close();

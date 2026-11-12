@@ -459,3 +459,14 @@ test('التنسيقات: كل ارتفاع بوحدة vh مقسوم على نس
   assert.ok(all.length > 5);
   assert.equal(all.length, safe.length, 'يوجد vh غير مقسوم على --zoom');
 });
+
+// ---------- توقيع المطوّر ----------
+import { devSignature, DEVELOPER } from '../src/dev-signature.js';
+
+test('توقيع المطوّر: المحتوى المعتمد وروابط التواصل الثلاثة صحيحة، والنص مهرَّب', () => {
+  const html = devSignature();
+  for (const t of ['تطوير وتصميم', 'حسين محمد علي الطويل', 'اللهم بارك في علمه وعمله', 'وأجراً لا ينقطع.', '«لا تنسَ المطوّر ووالديه من دعوة صادقة بظهر الغيب».', 'تواصل مع المطوّر']) assert.ok(html.indexOf(t) !== -1, `ينقص: ${t}`);
+  assert.deepEqual(DEVELOPER.links.map((l) => l.href), ['https://t.me/HUSSEIN_TAWEEL', 'https://wa.me/963958700900', 'mailto:husseintaweel2022@gmail.com']);
+  for (const l of DEVELOPER.links) assert.ok(html.indexOf(`href="${l.href}"`) !== -1);
+  assert.ok(devSignature({ ...DEVELOPER, name: '<b>x</b>' }).indexOf('<b>x</b>') === -1);
+});

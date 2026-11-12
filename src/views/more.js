@@ -8,6 +8,7 @@ import { checkForUpdate, updateAvailable } from '../updates.js';
 import { streak } from '../services.js';
 import { pageHead, fullHead, refresh, fmtDate } from './common.js';
 import { openSheet, toast } from '../ui.js';
+import { devSignature } from '../dev-signature.js';
 import { shareText, openExternal, inAppUpdateSupported, canInstallUpdates, openInstallSettings, downloadAndInstall } from '../native.js';
 
 const SHARE_TEXT = 'سكينة: رفيقك الروحي اليومي 🌙\nأذكار الصباح والمساء كاملة بالتشكيل والمصدر، والقرآن الكريم، ومواقيت الصلاة، والمسبحة، وبوصلة القبلة. يعمل بدون إنترنت، مجاني وبلا إعلانات.';
@@ -45,6 +46,7 @@ export function render() {
   const s = streak();
   return `${pageHead('المزيد', 'أدوات ومعرفة وتنظيمك الشخصي')}
     ${updateBanner()}
+    ${devSignature()}
     ${group('الأدوات والحاسبات', `
       ${tile('#/zakat', 'calculator', 'amber', 'حاسبة الزكاة', 'المال والذهب والفضة')}
       ${tile('#/qiyam', 'moon', 'indigo', 'قيام الليل', 'الثلث الأخير ونصف الليل')}
