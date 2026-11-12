@@ -21,7 +21,17 @@ function load(file) {
   return cache[file];
 }
 
-const firstLine = (t) => { const s = t.replace(/\n/g, ' '); return s.length > 140 ? `${s.slice(0, 140)}…` : s; };
+/** معاينة البطاقة: تبدأ من قول النبي ﷺ (بعد أول علامة تنصيص أو «قال:») وتُقطع عند حدّ كلمة */
+function firstLine(t) {
+  let s = t.replace(/\n/g, ' ');
+  const q = s.search(/["«]/);
+  const said = s.search(/قَالَ:|قال:/);
+  const from = q !== -1 && q < 260 ? q + 1 : said !== -1 && said < 260 ? s.indexOf(':', said) + 1 : 0;
+  s = s.slice(from).trim();
+  if (s.length <= 120) return s;
+  const cut = s.lastIndexOf(' ', 120);
+  return `${s.slice(0, cut > 60 ? cut : 120)}…`;
+}
 
 export function render(param) {
   if (BOOKS.some(([k]) => k === param)) { if (book !== param) { query = ''; shown = PAGE; } book = param; }
