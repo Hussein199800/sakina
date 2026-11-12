@@ -34,6 +34,9 @@ export const SHORTCUTS = [
   { id: 'mosques', label: 'المساجد', icon: 'mosque', tone: 'rose', to: '#/mosques' },
   { id: 'zakat', label: 'الزكاة', icon: 'calculator', tone: 'amber', to: '#/zakat' },
   { id: 'names', label: 'أسماء الله', icon: 'star', tone: 'amber', to: '#/names' },
+  { id: 'hadith', label: 'الأحاديث', icon: 'book', tone: 'teal', to: '#/hadith' },
+  { id: 'prophets', label: 'قصص الأنبياء', icon: 'star', tone: 'indigo', to: '#/prophets' },
+  { id: 'hajj', label: 'الحج والعمرة', icon: 'kaaba', tone: 'sand', to: '#/hajj' },
   { id: 'journal', label: 'رحلتي', icon: 'journal', tone: 'teal', to: '#/journal' },
   { id: 'reminders', label: 'التذكيرات', icon: 'bell', tone: 'amber', to: '#/reminders' },
 ];

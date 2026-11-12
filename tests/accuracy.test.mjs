@@ -225,3 +225,81 @@ test('«ادعُ لأخيك»: كل دعاء مأثور مطابق لمصدره�
   }
   assert.ok(checked >= 15, `عدد المفحوص قليل: ${checked}`);
 });
+
+// ---------- الأحاديث: الأربعون النووية ورياض الصالحين ----------
+import { cleanHadith } from '../src/hadith-clean.js';
+
+test('الأربعون النووية: متن كل حديث مطابق لمصدر ثانٍ مستقل، والتنظيف لا يحذف من المتن', () => {
+  const main = JSON.parse(readFileSync(new URL('../data/hadith/nawawi40.json', import.meta.url), 'utf8')).hadiths;
+  const check = JSON.parse(readFileSync(new URL('../data/hadith/nawawi40-check.json', import.meta.url), 'utf8')).hadiths;
+  assert.equal(main.length, 42);
+  assert.equal(check.length, 42);
+  const flat = (t) => cmp(t).replace(/[^ء-ي]/g, '');
+  // المتن من المصدر الثاني: ما قبل التخريج
+  // المتن من المصدر الثاني: ما قبل التخريج، أو حتى آخر علامة تنصيص إن سقطت أسماء المخرّجين منه (كالحديث ٣٧)
+  const matn = (t) => { const i = t.search(/رَوَاهُ|رواه|حَدِيثٌ حَسَنٌ|حديث حسن|حَدِيثٌ صَحِيحٌ/); if (i !== -1) return t.slice(0, i); const q = t.lastIndexOf('"'); return q > 0 ? t.slice(0, q) : t; };
+  main.forEach((h, i) => {
+    const out = cleanHadith(h.text);
+    assert.equal(h.n, i + 1);
+    assert.ok(!/[[\]]|<br>|رقم/.test(out), `الحديث ${h.n}: بقايا تنسيق`);
+    assert.ok(/رَوَاهُ|رواه|حديث|حَدِيثٌ|متفق/.test(out), `الحديث ${h.n}: بلا تخريج`);
+    // المتن بعد التنظيف يحوي متن المصدر الثاني كاملاً (حتى آخر ١٥ حرفاً لاختلاف موضع بداية التخريج)
+    const ref = flat(matn(check[i].text));
+    // الحديث ٥: المصدر الرئيسي يضع «رواه البخاري ومسلم» قبل «وفي رواية لمسلم» كما في متن الأربعين، والثاني يحذفه
+    const body = h.n === 5 ? flat(out).replace(flat('رَوَاهُ الْبُخَارِيُّ، وَمُسْلِمٌ'), '') : flat(out);
+    assert.ok(body.indexOf(ref.slice(0, Math.max(20, ref.length - 15))) !== -1, `الحديث ${h.n}: المتن يختلف عن المصدر الثاني`);
+  });
+});
+
+test('رياض الصالحين: ١٨٩٦ حديثاً متتالية الترقيم، لكل حديث كتاب، والتنظيف لا يحذف نصاً', () => {
+  const r = JSON.parse(readFileSync(new URL('../data/hadith/riyad.json', import.meta.url), 'utf8'));
+  assert.equal(r.hadiths.length, 1896);
+  const books = new Set(r.books.map((b) => b.id));
+  r.hadiths.forEach((h, i) => {
+    assert.equal(h.n, i + 1);
+    assert.ok(books.has(h.book), `الحديث ${h.n}: كتاب غير معروف`);
+    const out = cleanHadith(h.text);
+    assert.ok(out.length > 15, `الحديث ${h.n}: نص فارغ`);
+    // لا أقواس في هذا المصدر، فالتنظيف يغيّر المسافات وعلامات الاتجاه فقط
+    if (h.text.indexOf('[') === -1) assert.equal(cmp(out).replace(/\s/g, ''), cmp(h.text).replace(/[‎‏‪-‮]/g, '').replace(/\s/g, ''), `الحديث ${h.n}: تغيّر النص`);
+  });
+});
+
+// ---------- قصص الأنبياء من القرآن ----------
+import { PROPHETS } from '../src/data/prophets.js';
+
+test('قصص الأنبياء: كل نطاق آيات صحيح، واسم النبي وارد فيه', () => {
+  const flatQ = (t) => cmp(t).replace(/ى/g, 'ي').replace(/ة/g, 'ه');
+  assert.equal(PROPHETS.length, 25);
+  for (const p of PROPHETS) {
+    assert.ok(p.sum && p.sum.length > 40, `${p.id}: لا ملخص`);
+    for (const [s, a1, a2] of p.refs) {
+      assert.ok(s >= 1 && s <= 114 && a1 >= 1 && a1 <= a2 && a2 <= SURAS[s - 1][1], `${p.id}: نطاق غير صحيح ${s}:${a1}-${a2}`);
+      const text = verse.filter((v) => v.s === s && v.a >= a1 && v.a <= a2).map((v) => flatQ(v.n)).join(' ');
+      assert.ok(text.indexOf(flatQ(p.kw)) !== -1, `${p.id}: الاسم «${p.kw}» ليس في ${s}:${a1}-${a2}`);
+    }
+  }
+});
+
+// ---------- الحج والعمرة ----------
+import { UMRAH, HAJJ } from '../src/data/hajj.js';
+
+test('الحج والعمرة: كل ذكر مطابق لـ«حصن المسلم» أو للمصحف ومرجعه', () => {
+  let checked = 0;
+  for (const st of [...UMRAH, ...HAJJ]) {
+    assert.ok(st.title && st.sum && st.details.length, `${st.title}: خطوة ناقصة`);
+    if (!st.dhikr) continue;
+    const { t, s } = st.dhikr;
+    assert.ok(s && s.trim(), `${st.title}: ذكر بلا مصدر`);
+    const segs = segments(t);
+    if (segs.length) {
+      const rt = refText(s.slice(s.indexOf('سورة')));
+      for (const seg of segs) assert.ok(rt && rt.indexOf(cmp(seg)) !== -1, `${st.title}: الآية لا توافق مرجعها`);
+    } else {
+      const rest = cmp(t);
+      assert.ok(HISN.some((h) => h.n.indexOf(rest) !== -1), `${st.title}: الذكر لا يطابق «حصن المسلم»`);
+    }
+    checked += 1;
+  }
+  assert.ok(checked >= 7);
+});

@@ -48,6 +48,14 @@ function tanzil(file) {
 writeFileSync(`${out}/quran.json`, JSON.stringify(tanzil('quran-uthmani.txt')));
 writeFileSync(`${out}/quran-search.json`, JSON.stringify(tanzil('quran-simple-clean.txt')));
 
+// الأحاديث: الأربعون النووية ورياض الصالحين، تُحمَّل عند فتح صفحتها فقط
+const { cleanHadith } = await import('../src/hadith-clean.js');
+const naw = JSON.parse(readFileSync('data/hadith/nawawi40.json', 'utf8')).hadiths;
+if (naw.length !== 42) throw new Error(`الأربعون النووية: ${naw.length}`);
+writeFileSync(`${out}/nawawi.json`, JSON.stringify(naw.map((h) => [h.n, cleanHadith(h.text)])));
+const riyad = JSON.parse(readFileSync('data/hadith/riyad.json', 'utf8'));
+writeFileSync(`${out}/riyad.json`, JSON.stringify({ books: riyad.books, h: riyad.hadiths.map((h) => [h.n, h.book, cleanHadith(h.text)]) }));
+
 await build({
   entryPoints: ['src/main.js', 'src/styles.css'],
   bundle: true,

@@ -58,4 +58,6 @@ export const safe = esc;
 export const actions = {
   back: () => { if (history.length > 1) history.back(); else go('#/home'); },
   go: (el) => go(el.dataset.to),
+  // تبديل تبويب داخل الصفحة دون إضافة خطوة إلى سجل الرجوع
+  'go-replace': (el) => window.location.replace(el.dataset.to),
 };

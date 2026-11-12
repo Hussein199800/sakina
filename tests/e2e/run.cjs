@@ -47,7 +47,7 @@ const server = http.createServer((req, res) => {
     // أخطاء تحميل الشبكة متوقعة في اختبار انقطاع خدمة الخرائط، ولها فحص خاص
     page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(`${theme}: ${m.text()}`); });
     const routes = theme === 'oasis'
-      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques', 'suras', 'suras/112', 'read/anger', 'read/distress', 'library/awrad', 'library/feel', 'feel/angry', 'feel/sick', 'qiyam', 'customize', 'mywird', 'about', 'read/istighfar', 'read/mywird', 'library/loved', 'loved', 'card/new', 'zakat/people', 'zakat/log']
+      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques', 'suras', 'suras/112', 'read/anger', 'read/distress', 'library/awrad', 'library/feel', 'feel/angry', 'feel/sick', 'qiyam', 'customize', 'mywird', 'about', 'read/istighfar', 'read/mywird', 'library/loved', 'loved', 'card/new', 'zakat/people', 'zakat/log', 'hadith/nawawi', 'hadith/riyad', 'prophets', 'hajj/umrah', 'hajj/hajj']
       : ['home', 'quran', 'mushaf/2', 'read/morning', 'more', 'suras/96'];
     for (const r of routes) {
       await page.goto(`${base}#/${r}`);
@@ -356,6 +356,40 @@ const server = http.createServer((req, res) => {
       if (!(await page.$('.sheet [data-ph]'))) errors.push('نافذة خيارات الطباعة لا تظهر');
       await page.click('.sheet [data-close]');
       await page.waitForTimeout(300);
+      // ١٫٨: الأحاديث وقصص الأنبياء والحج والعمرة
+      await page.goto(`${base}#/hadith/nawawi`);
+      await page.waitForTimeout(900);
+      const hn = await page.$$eval('.hd-card', (x) => x.length);
+      if (hn !== 20) errors.push(`الأربعون النووية: تظهر ${hn} بطاقة بدل ٢٠ في الصفحة الأولى`);
+      await page.click('[data-act="hd-more"]');
+      await page.waitForTimeout(400);
+      await page.click('[data-act="hd-more"]');
+      await page.waitForTimeout(400);
+      if ((await page.$$eval('.hd-card', (x) => x.length)) !== 42) errors.push('الأربعون النووية لا تكتمل ٤٢ حديثاً');
+      await page.click('.hd-card[data-n="1"]');
+      await page.waitForTimeout(500);
+      if ((await page.textContent('.sheet .hadith-full')).indexOf('بِالنِّيَّاتِ') === -1) errors.push('الحديث الأول لا يظهر كاملاً');
+      await page.click('.sheet [data-close]').catch(() => page.keyboard.press('Escape'));
+      await page.waitForTimeout(300);
+      await page.goto(`${base}#/hadith/riyad`);
+      await page.waitForTimeout(1500);
+      await page.fill('[data-hq]', 'الحياء من الايمان');
+      await page.waitForTimeout(800);
+      const rq = await page.$$eval('.hd-card', (x) => x.length);
+      if (!rq) errors.push('البحث في رياض الصالحين بلا تشكيل لا يجد «الحياء من الإيمان»');
+      await page.goto(`${base}#/prophets`);
+      await page.waitForTimeout(400);
+      if ((await page.$$eval('.pr-card', (x) => x.length)) !== 25) errors.push('قصص الأنبياء ليست ٢٥');
+      await page.click('.pr-card:nth-child(11) summary');
+      await page.waitForTimeout(200);
+      await page.click('.pr-card:nth-child(11) .chip');
+      await page.waitForTimeout(900);
+      if (!/#\/mushaf\/\d+:\d+/.test(page.url())) errors.push(`آيات القصة لا تفتح المصحف: ${page.url()}`);
+      await page.goto(`${base}#/hajj/umrah`);
+      await page.waitForTimeout(400);
+      await page.click('[data-to="#/hajj/hajj"]');
+      await page.waitForTimeout(400);
+      if ((await page.textContent('#view')).indexOf('يوم عرفة') === -1) errors.push('تبويب الحج لا يعرض يوم عرفة');
       // قيام الليل: إدخال يدوي
       await page.goto(`${base}#/qiyam`);
       await page.waitForTimeout(300);
