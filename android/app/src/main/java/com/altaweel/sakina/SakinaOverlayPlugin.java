@@ -38,6 +38,9 @@ public class SakinaOverlayPlugin extends Plugin {
     @PluginMethod
     public void schedule(PluginCall call) {
         JSArray items = call.getArray("items", new JSArray());
+        JSArray snooze = call.getArray("snooze", null);
+        JSObject quiet = call.getObject("quiet", null);
+        OverlayScheduler.config(getContext(), snooze == null ? null : snooze.toString(), quiet == null ? null : quiet.toString(), !"latn".equals(call.getString("digits", "arab")));
         OverlayScheduler.schedule(getContext(), items.toString());
         call.resolve();
     }

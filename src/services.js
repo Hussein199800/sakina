@@ -1,7 +1,7 @@
 // منطق التطبيق المشترك: الموقع والمواقيت، الفترة الزمنية، التقدّم والعادات، جدولة التنبيهات
 import { state, save, today, doneOf } from './store.js';
 import { CITIES, DEFAULT_CITY } from './data/cities.js';
-import { CATEGORY_BY_ID } from './data/adhkar.js';
+import { CATEGORY_BY_ID, ITEM_BY_ID } from './data/adhkar.js';
 import { computeTimes, PRAYERS } from './prayer.js';
 import { ymdInTz, toHijri, addDays, dateKey } from './dates.js';
 import { scheduleAll, notificationsSupported, scheduleOverlays, overlaySupported } from './native.js';
@@ -72,6 +72,13 @@ export function suggestedWird(now = new Date()) {
 // ---------- التقدّم ----------
 export function itemsOf(catId) {
   if (catId === 'custom') return state.custom.map((c) => ({ ...c, cat: 'custom' }));
+  // «وردي الخاص»: أذكار من المكتبة بعدد يحدده المستخدم (التقدّم مشترك مع الذكر الأصلي)
+  if (catId === 'mywird') {
+    return (state.mywird || []).map((w) => {
+      const base = w.id.startsWith('custom-') ? state.custom.find((x) => x.id === w.id) : ITEM_BY_ID[w.id];
+      return base && { ...base, cat: base.cat || 'custom', n: w.n };
+    }).filter(Boolean);
+  }
   if (catId === 'favorites') {
     return state.favorites.map((id) => {
       if (id.startsWith('custom-')) { const c = state.custom.find((x) => x.id === id); return c && { ...c, cat: 'custom' }; }
@@ -159,6 +166,17 @@ export function rescheduleNotifications() {
 // حدّ أعلى لعدد الإشعارات المجدولة (أندرويد يرفض أكثر من ٥٠٠ منبّه للتطبيق)
 export const MAX_SCHEDULED = 300;
 
+const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+/** هل الموعد داخل ساعات الهدوء؟ (تمتد عبر منتصف الليل إذا كانت البداية بعد النهاية) */
+export function inQuiet(at, q = state.settings.quiet) {
+  if (!q || !q.on) return false;
+  const m = at.getHours() * 60 + at.getMinutes();
+  const from = toMin(q.from);
+  const to = toMin(q.to);
+  if (from === to) return false;
+  return from < to ? m >= from && m < to : m >= from || m < to;
+}
+
 export function buildNotifications(now = new Date()) {
   const n = state.settings.notif;
   const list = [];
@@ -187,7 +205,7 @@ export function buildNotifications(now = new Date()) {
   // التذكيرات المخصّصة: مواعيد محددة لثلاثة أسابيع، وتُجدَّد عند كل فتح للتطبيق
   let rid = 1000;
   for (const r of state.reminders) {
-    for (const o of occurrences(r, now, 21, state.settings.hijriAdjust).slice(0, 25)) list.push({ id: rid++, title: o.title, body: o.body, at: o.at, route: routeOf(r) });
+    for (const o of occurrences(r, now, 21, state.settings.hijriAdjust).filter((x) => !inQuiet(x.at)).slice(0, 25)) list.push({ id: rid++, title: o.title, body: o.body, at: o.at, route: routeOf(r) });
   }
   return list.slice(0, MAX_SCHEDULED);
 }
@@ -212,6 +230,7 @@ export function buildOverlays(now = new Date()) {
       const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, hour, minute, 0, 0);
       if (at <= now) continue;
       if (d === 0 && catProgress(key) >= 1) continue;
+      if (inQuiet(at)) continue;
       out.push({ id: 7000 + slot * 10 + d, at, title, body, route: `/read/${key}` });
     }
   }
@@ -219,7 +238,10 @@ export function buildOverlays(now = new Date()) {
 }
 
 async function doReschedule() {
-  if (overlaySupported) await scheduleOverlays(buildOverlays());
+  if (overlaySupported) {
+    const q = state.settings.quiet;
+    await scheduleOverlays(buildOverlays(), { snooze: state.settings.snooze, quiet: { on: q.on, from: toMin(q.from), to: toMin(q.to) }, digits: state.settings.digits });
+  }
   if (!notificationsSupported) return;
   try { await scheduleAll(buildNotifications()); } catch (e) { /* تجاهل أخطاء الجدولة */ }
 }

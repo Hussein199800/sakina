@@ -22,10 +22,14 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+import org.json.JSONArray;
 
 /**
  * الفقاعة العائمة فوق التطبيقات: دائرة بأيقونة سكينة وبجانبها عنوان التذكير.
- * تُسحب بالإصبع، وتفتح الصفحة المناسبة عند الضغط، وتُغلق بزر × أو بسحبها لأسفل الشاشة.
+ * تُسحب بالإصبع، وتفتح الصفحة المناسبة عند الضغط.
+ * زر × ظاهر دائماً بجانب الدائرة: يغلق التذكير الحالي فقط دون فتح سكينة، ولا يؤثر على التذكيرات القادمة.
+ * زر «تأجيل» مستقل: يعرض المدد التي اختارها المستخدم في الإعدادات، ويعيد إظهار التذكير نفسه بعدها.
  */
 public final class BubbleView {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
@@ -76,6 +80,25 @@ public final class BubbleView {
         icon.setContentDescription(title);
         root.addView(icon, new LinearLayout.LayoutParams(dp(app, 58), dp(app, 58)));
 
+        // زر الإغلاق: ظاهر دائماً حتى بعد طيّ البطاقة، ويغلق هذا التذكير فقط
+        TextView close = new TextView(app);
+        close.setText("✕");
+        close.setTextColor(Color.parseColor("#1F5E43"));
+        close.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        close.setTypeface(Typeface.DEFAULT_BOLD);
+        close.setGravity(Gravity.CENTER);
+        close.setContentDescription("إغلاق التذكير");
+        GradientDrawable cbg = new GradientDrawable();
+        cbg.setShape(GradientDrawable.OVAL);
+        cbg.setColor(Color.WHITE);
+        cbg.setStroke(dp(app, 1), Color.parseColor("#D4A373"));
+        close.setBackground(cbg);
+        close.setElevation(dp(app, 7));
+        close.setOnClickListener(v -> dismiss(wm));
+        LinearLayout.LayoutParams cLp = new LinearLayout.LayoutParams(dp(app, 40), dp(app, 40));
+        cLp.setMarginStart(dp(app, 4));
+        root.addView(close, cLp);
+
         // البطاقة الصغيرة بجانب الدائرة
         final LinearLayout pill = new LinearLayout(app);
         pill.setOrientation(LinearLayout.HORIZONTAL);
@@ -88,7 +111,7 @@ public final class BubbleView {
         pill.setElevation(dp(app, 6));
         pill.setPadding(dp(app, 14), dp(app, 8), dp(app, 8), dp(app, 8));
 
-        LinearLayout texts = new LinearLayout(app);
+        final LinearLayout texts = new LinearLayout(app);
         texts.setOrientation(LinearLayout.VERTICAL);
         TextView t1 = new TextView(app);
         t1.setText(title);
@@ -108,14 +131,37 @@ public final class BubbleView {
         }
         pill.addView(texts);
 
-        TextView close = new TextView(app);
-        close.setText("×");
-        close.setTextColor(Color.WHITE);
-        close.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-        close.setGravity(Gravity.CENTER);
-        close.setContentDescription("إغلاق");
-        close.setOnClickListener(v -> dismiss(wm));
-        pill.addView(close, new LinearLayout.LayoutParams(dp(app, 36), dp(app, 36)));
+        // زر التأجيل: يستبدل محتوى البطاقة بالمدد المتاحة
+        final LinearLayout snoozeRow = new LinearLayout(app);
+        snoozeRow.setOrientation(LinearLayout.HORIZONTAL);
+        snoozeRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        snoozeRow.setVisibility(View.GONE);
+        final TextView snooze = chip(app, "تأجيل", false);
+        snooze.setContentDescription("تأجيل التذكير");
+        final String fTitle = title, fBody = body;
+        snooze.setOnClickListener(v -> {
+            MAIN.removeCallbacks(collapseTask);
+            texts.setVisibility(View.GONE);
+            snooze.setVisibility(View.GONE);
+            // تُخفى الدائرة أثناء اختيار المدة حتى تتسع المدد الأربع لعرض الشاشات الصغيرة
+            icon.setVisibility(View.GONE);
+            snoozeRow.removeAllViews();
+            final boolean arab = OverlayScheduler.arabDigits(app);
+            for (final int m : OverlayScheduler.snoozeMinutes(app)) {
+                TextView c = chip(app, label(m, arab), true);
+                c.setOnClickListener(x -> {
+                    OverlayScheduler.snooze(app, m, fTitle, fBody, route);
+                    Toast.makeText(app, "سيظهر التذكير بعد " + label(m, arab), Toast.LENGTH_SHORT).show();
+                    dismiss(wm);
+                });
+                snoozeRow.addView(c);
+            }
+            snoozeRow.setVisibility(View.VISIBLE);
+        });
+        LinearLayout.LayoutParams snLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(app, 36));
+        snLp.setMarginStart(dp(app, 8));
+        pill.addView(snooze, snLp);
+        pill.addView(snoozeRow);
 
         LinearLayout.LayoutParams pillLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         pillLp.setMarginEnd(dp(app, 2));
@@ -190,16 +236,55 @@ public final class BubbleView {
         root.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(260).start();
 
         // بعد ثوانٍ تُطوى البطاقة وتبقى الدائرة الصغيرة فقط
-        collapseTask = () -> pill.animate().alpha(0f).setDuration(220).setListener(new AnimatorListenerAdapter() {
+        // بعد ثوانٍ يُطوى النص ويبقى زر «تأجيل» ظاهراً مع الدائرة وزر الإغلاق
+        collapseTask = () -> texts.animate().alpha(0f).setDuration(220).setListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator a) {
-                pill.setVisibility(View.GONE);
+                texts.setVisibility(View.GONE);
+                pill.setPadding(dp(app, 6), dp(app, 6), dp(app, 6), dp(app, 6));
                 try { wm.updateViewLayout(root, lp); } catch (Exception ignored) { }
             }
         }).start();
         dismissTask = () -> dismiss(wm);
         MAIN.postDelayed(collapseTask, COLLAPSE_AFTER_MS);
         MAIN.postDelayed(dismissTask, DISMISS_AFTER_MS);
+    }
+
+    private static TextView chip(Context app, String text, boolean light) {
+        TextView c = new TextView(app);
+        c.setText(text);
+        c.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        c.setTypeface(Typeface.DEFAULT_BOLD);
+        c.setGravity(Gravity.CENTER);
+        c.setTextColor(light ? Color.parseColor("#1F5E43") : Color.WHITE);
+        c.setPadding(dp(app, 12), 0, dp(app, 12), 0);
+        c.setMinHeight(dp(app, 36));
+        GradientDrawable g = new GradientDrawable();
+        g.setCornerRadius(dp(app, 18));
+        if (light) g.setColor(Color.WHITE); else { g.setColor(Color.TRANSPARENT); g.setStroke(dp(app, 1), Color.parseColor("#D4A373")); }
+        c.setBackground(g);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(app, 36));
+        lp.setMarginStart(dp(app, 4));
+        c.setLayoutParams(lp);
+        return c;
+    }
+
+    /** ٥ د، ١٥ د، ساعة، ساعتان… */
+    static String label(int m, boolean arab) {
+        if (m % 60 == 0) {
+            int h = m / 60;
+            return h == 1 ? "ساعة" : h == 2 ? "ساعتين" : digits(h, arab) + " ساعات";
+        }
+        return digits(m, arab) + " د";
+    }
+
+    /** الأرقام بالنظام الذي اختاره المستخدم في التطبيق */
+    private static String digits(int n, boolean arab) {
+        String s = String.valueOf(n);
+        if (!arab) return s;
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) b.append((char) ('\u0660' + (s.charAt(i) - '0')));
+        return b.toString();
     }
 
     private static void open(Context app, String route) {

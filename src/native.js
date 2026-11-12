@@ -22,9 +22,9 @@ export async function overlayGranted() {
 }
 export async function openOverlaySettings() { if (overlaySupported) await Overlay.openSettings().catch(() => {}); }
 /** @param {Array<{id:number, at:Date, title:string, body:string, route:string}>} items */
-export async function scheduleOverlays(items) {
+export async function scheduleOverlays(items, config = {}) {
   if (!overlaySupported) return;
-  try { await Overlay.schedule({ items: items.map((i) => ({ ...i, at: i.at.getTime() })) }); } catch (e) { /* غير متاح */ }
+  try { await Overlay.schedule({ items: items.map((i) => ({ ...i, at: i.at.getTime() })), snooze: config.snooze, quiet: config.quiet, digits: config.digits }); } catch (e) { /* غير متاح */ }
 }
 export async function showOverlayNow(title, body, route) {
   if (!overlaySupported) return false;
@@ -90,6 +90,41 @@ export async function shareText(text, title = 'سكينة') {
     return false;
   }
   return copyText(text).then(() => 'copied');
+}
+
+const Printer = registerPlugin('SakinaPrint');
+/** طباعة صفحة HTML عبر نافذة طباعة النظام (ومنها «حفظ كملف PDF») */
+export async function printHtml(html, title = 'سكينة') {
+  if (isAndroid) {
+    try { await Printer.print({ html, title }); return true; } catch (e) { return false; }
+  }
+  try {
+    const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px';
+    document.body.appendChild(f);
+    f.contentDocument.open();
+    f.contentDocument.write(html);
+    f.contentDocument.close();
+    setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 2000); }, 300);
+    return true;
+  } catch (e) { return false; }
+}
+
+const Gallery = registerPlugin('SakinaGallery');
+/** حفظ صورة PNG في معرض الصور (ألبوم سكينة) على أندرويد، أو تنزيلها في المتصفح. يعيد 'gallery' أو 'download' أو false */
+export async function saveImageToGallery(dataUrl, name = 'sakina.png') {
+  if (isAndroid) {
+    try { await Gallery.save({ data: dataUrl.split(',')[1], name }); return 'gallery'; } catch (e) { return false; }
+  }
+  try {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return 'download';
+  } catch (e) { return false; }
 }
 
 /** مشاركة صورة PNG (dataURL) */

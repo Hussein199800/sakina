@@ -8,6 +8,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SakinaOverlayPlugin.class);
         registerPlugin(SakinaUpdaterPlugin.class);
+        registerPlugin(SakinaGalleryPlugin.class);
+        registerPlugin(SakinaPrintPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

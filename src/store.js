@@ -1,5 +1,6 @@
 // حالة التطبيق محفوظة في localStorage: الإعدادات، تقدّم اليوم، المفضلة، الأذكار الخاصة، المسبحة، السجل
 import { dateKey } from './dates.js';
+import { sanitizeBook } from './zakatlog.js';
 
 const KEY = 'sakina.v1';
 
@@ -25,6 +26,18 @@ export const DEFAULTS = {
     },
     // الفقاعة العائمة فوق التطبيقات عند تذكير الأذكار
     overlay: false,
+    // اتباع وضع الهاتف: الواحة الهادئة نهاراً والسكينة الليلية في الوضع الداكن
+    followSystem: false,
+    // خط الواجهة وخط النصوص وحجم خط التطبيق كله
+    uiFont: 'plex',
+    textFont: 'amiri',
+    uiScale: 1,
+    // مدد تأجيل الفقاعة بالدقائق
+    snooze: [5, 15, 30, 60],
+    // ساعات الهدوء: لا تظهر فيها الفقاعة ولا التذكيرات المخصّصة (تبقى تنبيهات الصلاة)
+    quiet: { on: false, from: '23:00', to: '05:00' },
+    // تخصيص الرئيسية: ترتيب البطاقات والمخفي منها والاختصارات
+    home: null,
   },
   quran: { lastPage: 0, fontSize: 27, bookmarks: [] },
   // الختمة: page = الصفحة التالية للقراءة، log = الصفحات المقروءة لكل يوم
@@ -36,6 +49,8 @@ export const DEFAULTS = {
   progress: { date: '', counts: {} },
   favorites: [],
   custom: [],
+  // «وردي الخاص»: أذكار يختارها المستخدم من المكتبة بعدد يحدده [{id, n}]
+  mywird: [],
   tasbih: { selected: 'subhan', target: 33, count: 0, rounds: 0, total: 0 },
   history: {},
 };
@@ -71,13 +86,16 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 export function sanitize(st) {
   const d = DEFAULTS;
   const s = st.settings;
-  s.theme = oneOf(s.theme, ['oasis', 'midnight', 'dawn', 'royal'], d.settings.theme);
+  s.theme = oneOf(s.theme, ['oasis', 'midnight', 'dawn', 'royal', 'beige', 'olive', 'ocean', 'abyss'], d.settings.theme);
+  s.uiFont = oneOf(s.uiFont, ['plex', 'cairo', 'tajawal', 'almarai', 'kufi', 'readex'], 'plex');
+  s.textFont = oneOf(s.textFont, ['amiri', 'scheherazade', 'naskh', 'lateef', 'ruqaa'], 'amiri');
+  s.uiScale = oneOf(+s.uiScale, [0.85, 0.9, 1, 1.1, 1.2, 1.3, 1.4], 1);
   s.fontSize = clampNum(s.fontSize, 18, 44, d.settings.fontSize);
   s.digits = oneOf(s.digits, ['arab', 'latn'], 'arab');
   s.readMode = oneOf(s.readMode, ['focus', 'list'], 'focus');
   s.asr = oneOf(s.asr, ['shafi', 'hanafi'], 'shafi');
   s.hijriAdjust = Math.round(clampNum(s.hijriAdjust, -2, 2, 0));
-  for (const k of ['tashkeel', 'autoAdvance', 'sound', 'haptic']) s[k] = typeof s[k] === 'boolean' ? s[k] : d.settings[k];
+  for (const k of ['tashkeel', 'autoAdvance', 'sound', 'haptic', 'followSystem']) s[k] = typeof s[k] === 'boolean' ? s[k] : d.settings[k];
   if (!isObj(s.location) || (s.location.type === 'gps' ? !(Number.isFinite(s.location.lat) && Number.isFinite(s.location.lng)) : !Number.isInteger(s.location.cityId))) s.location = { ...d.settings.location };
   for (const k of ['morning', 'evening', 'sleep']) {
     if (!isObj(s.notif[k])) s.notif[k] = { ...d.settings.notif[k] };
@@ -86,7 +104,28 @@ export function sanitize(st) {
   }
   s.notif.prayers = !!s.notif.prayers;
   s.overlay = !!s.overlay;
+  s.snooze = Array.isArray(s.snooze) ? [...new Set(s.snooze.map((m) => Math.round(+m)).filter((m) => m >= 1 && m <= 720))].sort((a, b) => a - b).slice(0, 6) : [];
+  if (!s.snooze.length) s.snooze = d.settings.snooze.slice();
+  if (!isObj(s.quiet)) s.quiet = { ...d.settings.quiet };
+  s.quiet = { on: !!s.quiet.on, from: TIME.test(s.quiet.from) ? s.quiet.from : '23:00', to: TIME.test(s.quiet.to) ? s.quiet.to : '05:00' };
+  if (s.home !== null && !(isObj(s.home) && Array.isArray(s.home.order) && Array.isArray(s.home.hidden) && Array.isArray(s.home.shortcuts))) s.home = null;
+  else if (s.home) for (const k of ['order', 'hidden', 'shortcuts']) s.home[k] = s.home[k].filter((x) => typeof x === 'string');
   delete s.adhanVoice; // أُلغيت ميزة صوت الأذان في الإصدار ١٫٣
+  // حاسبة قيام الليل: إدخال يدوي اختياري
+  if (st.qiyam !== undefined && st.qiyam !== null && !(isObj(st.qiyam) && TIME.test(st.qiyam.maghrib) && TIME.test(st.qiyam.fajr))) st.qiyam = null;
+  else if (st.qiyam) st.qiyam.manual = !!st.qiyam.manual;
+  // «لمن تحب»: دعواتي الخاصة، ومسودة بطاقة الدعاء، والتصاميم المحفوظة (كلها على الجهاز فقط)
+  st.loved = Array.isArray(st.loved) ? st.loved.filter((p) => isObj(p) && typeof p.id === 'string' && typeof p.name === 'string' && p.name.trim()).map((p) => ({
+    id: p.id, name: p.name.slice(0, 120), form: oneOf(p.form, ['m', 'f', 'p'], 'm'),
+    duas: Array.isArray(p.duas) ? p.duas.filter((d) => isObj(d) && typeof d.t === 'string' && d.t.trim() && typeof d.id === 'string').map((d) => ({ id: d.id, t: d.t.slice(0, 2000) })) : [],
+    count: Math.max(0, Math.floor(clampNum(p.count, 0, 1e7, 0))), last: typeof p.last === 'string' ? p.last : '',
+  })) : [];
+  if (st.cardDraft !== undefined && st.cardDraft !== null && !isObj(st.cardDraft)) st.cardDraft = null;
+  st.cardDesigns = Array.isArray(st.cardDesigns) ? st.cardDesigns.filter((d) => isObj(d) && typeof d.id === 'string' && isObj(d.spec)).slice(0, 30) : [];
+  // سجل الزكاة والصدقات (الحسابات والمستحقون والتسليم)
+  if (st.zakatBook !== undefined && st.zakatBook !== null) st.zakatBook = sanitizeBook(st.zakatBook);
+  if (st.mywird !== undefined && !Array.isArray(st.mywird)) st.mywird = [];
+  if (Array.isArray(st.mywird)) st.mywird = st.mywird.filter((w) => isObj(w) && typeof w.id === 'string').map((w) => ({ id: w.id, n: Math.round(clampNum(w.n, 1, 10000, 1)) }));
   for (const k of ['favorites', 'custom', 'reminders']) if (!Array.isArray(st[k])) st[k] = [];
   if (st.groups !== undefined && !Array.isArray(st.groups)) st.groups = [];
   st.favorites = st.favorites.filter((x) => typeof x === 'string');
@@ -127,8 +166,18 @@ export function save() {
 }
 export function flush() {
   clearTimeout(timer);
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* التخزين ممتلئ أو محجوب */ }
+  try {
+    localStorage.setItem(KEY, serialize());
+    saveFailed = false;
+  } catch (e) {
+    // التخزين ممتلئ أو محجوب: يُنبَّه المستخدم مرة واحدة بدل ضياع التغييرات بصمت
+    if (!saveFailed && typeof document !== 'undefined') document.dispatchEvent(new Event('app:save-failed'));
+    saveFailed = true;
+  }
 }
+let saveFailed = false;
+/** نص الحفظ والنسخة الاحتياطية: صورة خلفية بطاقة الدعاء تبقى في الذاكرة فقط لأنها كبيرة */
+export const serialize = (space) => JSON.stringify(state, (k, v) => (k === 'bgImage' ? '' : v), space);
 
 /** تقدّم اليوم يُصفَّر تلقائياً مع بداية يوم جديد */
 export function today() {

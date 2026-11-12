@@ -10,6 +10,7 @@ public class OverlayReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent == null ? null : intent.getAction();
         if (OverlayScheduler.ACTION_SHOW.equals(action)) {
+            if (OverlayScheduler.inQuiet(context, System.currentTimeMillis())) return;
             BubbleView.show(context,
                 intent.getStringExtra(OverlayScheduler.EXTRA_TITLE),
                 intent.getStringExtra(OverlayScheduler.EXTRA_BODY),

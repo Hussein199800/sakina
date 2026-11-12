@@ -8,8 +8,7 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
   // الشبكة أولاً ثم النسخة المحفوظة، حتى تصل التحديثات فوراً
   e.respondWith(fetch(e.request).then((res) => {
-    const copy = res.clone();
-    caches.open(CACHE).then((c) => c.put(e.request, copy));
+    if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); }
     return res;
   }).catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match('./index.html'))));
 });

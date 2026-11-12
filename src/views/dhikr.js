@@ -2,7 +2,7 @@
 import { state, save } from '../store.js';
 import { ITEM_BY_ID, CATEGORY_BY_ID } from '../data/adhkar.js';
 import { copyText, shareText, shareImage } from '../native.js';
-import { toast, renderShareCard, dhikrText, openSheet, CARD_BACKGROUNDS, DEFAULT_CARD, THEMES } from '../ui.js';
+import { toast, renderShareCard, dhikrText, openSheet, CARD_BACKGROUNDS, DEFAULT_CARD, THEMES, activeTheme } from '../ui.js';
 import { icon } from '../icons.js';
 import { num } from '../text.js';
 
@@ -34,7 +34,7 @@ function cardDesigner(p) {
   let seq = 0;
   let current = '';
   const swatch = (k) => {
-    const c = CARD_BACKGROUNDS[k] || [(THEMES[state.settings.theme] || THEMES.oasis).primary, '#000', '#fff', (THEMES[state.settings.theme] || THEMES.oasis).secondary];
+    const c = CARD_BACKGROUNDS[k] || [(THEMES[activeTheme()] || THEMES.oasis).primary, '#000', '#fff', (THEMES[activeTheme()] || THEMES.oasis).secondary];
     return `<button class="cd-bg ${opt.bg === k ? 'on' : ''}" data-bg="${k}" style="background:linear-gradient(135deg, ${c[0]}, ${c[1]})" aria-label="${BG_LABELS[k]}"><span style="color:${c[3]}">${icon('check')}</span></button>`;
   };
   openSheet(`<h3 class="sheet-title">${icon('image')} تصميم بطاقة المشاركة</h3>

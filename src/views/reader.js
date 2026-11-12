@@ -19,6 +19,7 @@ let advanceTimer;
 const META = {
   favorites: { title: 'المفضلة', icon: 'heart', empty: 'لم تحفظ أي ذكر بعد. اضغط على أيقونة القلب في أي ذكر ليظهر هنا.' },
   custom: { title: 'أذكاري الخاصة', icon: 'edit', empty: 'أضف أدعيتك وأذكارك الخاصة، وحدّد عدد تكرارها، وستُحفظ على جهازك.' },
+  mywird: { title: 'وردي الخاص', icon: 'edit', empty: 'ابنِ وردك اليومي من أذكار المكتبة، واختر عدد تكرار كل ذكر. هذا ورد شخصي يختاره المستخدم، والأعداد فيه من اختيارك.' },
 };
 const titleOf = (id) => (CATEGORY_BY_ID[id] ? CATEGORY_BY_ID[id].title : META[id].title);
 
@@ -36,7 +37,7 @@ function header() {
     <div class="rb-top">
       <button class="icon-btn" data-act="back" aria-label="رجوع">${icon('back')}</button>
       <div class="rb-title"><b>${titleOf(catId)}</b><small data-rb-count>${num(done)} من ${num(total)} مكتمل</small></div>
-      ${catId === 'custom' ? `<button class="icon-btn" data-act="custom-add" aria-label="إضافة">${icon('plus')}</button>` : `<button class="icon-btn" data-act="r-reset" aria-label="إعادة ضبط العداد">${icon('refresh')}</button>`}
+      ${catId === 'mywird' ? `<button class="icon-btn" data-act="go" data-to="#/mywird" aria-label="تعديل وردي">${icon('edit')}</button>` : catId === 'custom' ? `<button class="icon-btn" data-act="custom-add" aria-label="إضافة">${icon('plus')}</button>` : `<button class="icon-btn" data-act="r-reset" aria-label="إعادة ضبط العداد">${icon('refresh')}</button>`}
     </div>
     <div class="rb-tools" role="toolbar" aria-label="أدوات القراءة">
       <button class="rt" data-act="r-font" data-d="-2" aria-label="تصغير الخط"><span class="rt-a">A-</span></button>
@@ -125,7 +126,7 @@ export function render(param) {
   items = itemsOf(catId);
   if (!items.length) {
     return `${header()}<div class="empty reader-empty">${icon(META[catId] ? META[catId].icon : 'book')}<p>${META[catId] ? META[catId].empty : ''}</p>
-      ${catId === 'custom' ? `<button class="btn btn-primary" data-act="custom-add">${icon('plus')} إضافة ذكر جديد</button>` : ''}</div>`;
+      ${catId === 'custom' ? `<button class="btn btn-primary" data-act="custom-add">${icon('plus')} إضافة ذكر جديد</button>` : catId === 'mywird' ? `<button class="btn btn-primary" data-act="go" data-to="#/mywird">${icon('plus')} ابنِ وردك</button>` : ''}</div>`;
   }
   if (stay) { idx = Math.min(idx, items.length - 1); stay = false; } else if (start !== undefined && start !== '') { idx = Math.min(items.length - 1, Math.max(0, +start)); review = true; } else {
     const first = items.findIndex((it) => doneOf(it.id) < it.n);

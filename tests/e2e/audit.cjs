@@ -8,7 +8,7 @@ const server = http.createServer((req, res) => {
   const f = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]).replace(/\/$/, '/index.html'));
   fs.readFile(f, (e, d) => { if (e) { res.writeHead(404); res.end(); return; } res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' }); res.end(d); });
 });
-const ROUTES = ['setup', 'home', 'quran', 'mushaf/3', 'group', 'library', 'read/morning', 'read/salawat', 'read/hamd', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'zakat', 'mosques', 'whatsnew', 'suras', 'suras/2', 'suras/112', 'read/anger', 'read/misc'];
+const ROUTES = ['setup', 'home', 'quran', 'mushaf/3', 'group', 'library', 'read/morning', 'read/salawat', 'read/hamd', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'zakat', 'mosques', 'whatsnew', 'suras', 'suras/2', 'suras/112', 'read/anger', 'read/misc', 'library/awrad', 'library/feel', 'feel/lonely', 'qiyam', 'customize', 'mywird', 'about', 'read/takbir', 'library/loved', 'loved', 'card/new', 'zakat/people', 'zakat/log', 'hadith/nawawi', 'hadith/riyad', 'prophets', 'hajj/umrah', 'hajj/hajj'];
 const problems = [];
 (async () => {
   await new Promise((r) => server.listen(0, r));
@@ -27,7 +27,7 @@ const problems = [];
           const walk = (n) => { for (const c of n.childNodes) { if (c.nodeType === 3) { const t = c.textContent.trim(); if (t && bad.test(t) && !/^A[+-]$/.test(t) && !c.parentElement.closest('[data-digit-sample]')) out.push(t.slice(0, 60)); } else if (c.nodeType === 1 && !['SCRIPT', 'STYLE', 'svg'].includes(c.tagName)) walk(c); } };
           walk(document.body);
           document.querySelectorAll('input').forEach((i) => { if (i.type !== 'search' && i.type !== 'file' && i.value && bad.test(i.value)) out.push(`[input ${i.type}] ${i.value}`); });
-          const over = [...document.querySelectorAll('body *')].filter((e) => { const rc = e.getBoundingClientRect(); return rc.width > 0 && (rc.right > innerWidth + 1 || rc.left < -1) && !e.closest('.mood-scroll,.sheet-wrap,.tabbar,.sky-deco,svg'); }).slice(0, 3).map((e) => `${e.tagName}.${e.className}`.slice(0, 50));
+          const over = [...document.querySelectorAll('body *')].filter((e) => { const rc = e.getBoundingClientRect(); return rc.width > 0 && (rc.right > innerWidth + 1 || rc.left < -1) && !e.closest('.mood-scroll,.cd-occ,.sheet-wrap,.tabbar,.sky-deco,svg'); }).slice(0, 3).map((e) => `${e.tagName}.${e.className}`.slice(0, 50));
           return { mixed: [...new Set(out)].slice(0, 8), over, sw: document.documentElement.scrollWidth > innerWidth };
         }, digits);
         if (res.mixed.length || res.over.length || res.sw) problems.push(`${digits} ${width}px #/${r}: ${JSON.stringify(res)}`);

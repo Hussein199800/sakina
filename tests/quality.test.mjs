@@ -237,3 +237,236 @@ test('المساجد القريبة: المسافة والاتجاه وتحوي�
   assert.equal(got.length, 2);
   await assert.rejects(fetchMosques(me, 2000, () => Promise.reject(new Error('offline'))));
 });
+
+// ---------- الإصدار ١٫٥ ----------
+import { readFileSync } from 'node:fs';
+import { nightParts } from '../src/views/qiyam.js';
+import { inQuiet } from '../src/services.js';
+import { homeLayout, visibleCards, HOME_CARDS, SHORTCUTS, MAX_SHORTCUTS, DEFAULT_SHORTCUTS } from '../src/home-layout.js';
+
+test('قيام الليل: النصف والثلث الأخير من المغرب إلى الفجر', () => {
+  const p = nightParts('17:00', '05:00');
+  assert.equal(p.len, 720);
+  assert.equal(p.half, '23:00');
+  assert.equal(p.lastThird, '01:00');
+  // ليل صيفي قصير: ١٩:٣٠ ← ٠٣:٣٠ = ٨ ساعات، والثلث الأخير يبدأ ٠٠:٥٠
+  const s = nightParts('19:30', '03:30');
+  assert.equal(s.len, 480);
+  assert.equal(s.half, '23:30');
+  assert.equal(s.lastThird, '00:50');
+});
+
+test('ساعات الهدوء: داخل الفترة وعبر منتصف الليل', () => {
+  const at = (h, m = 0) => new Date(2026, 10, 11, h, m);
+  const night = { on: true, from: '23:00', to: '05:00' };
+  assert.equal(inQuiet(at(23, 30), night), true);
+  assert.equal(inQuiet(at(2), night), true);
+  assert.equal(inQuiet(at(5), night), false);
+  assert.equal(inQuiet(at(22, 59), night), false);
+  const day = { on: true, from: '13:00', to: '15:00' };
+  assert.equal(inQuiet(at(14), day), true);
+  assert.equal(inQuiet(at(16), day), false);
+  assert.equal(inQuiet(at(23, 30), { ...night, on: false }), false);
+});
+
+test('ساعات الهدوء تمنع الفقاعة والتذكيرات المخصّصة ولا تمنع الصلاة', () => {
+  const saved = JSON.stringify(state.settings);
+  const savedRem = state.reminders;
+  try {
+    state.settings.overlay = true;
+    state.settings.notif.morning = { on: true, time: '06:30' };
+    state.settings.notif.evening = { on: false, time: '17:00' };
+    state.settings.notif.sleep = { on: false, time: '22:30' };
+    state.reminders = [{ id: 'r1', kind: 'qiyam', on: true, time: '03:30', mode: 'day' }];
+    const now = new Date(2026, 10, 11, 12, 0);
+    const before = buildOverlays(now).length;
+    const remBefore = buildNotifications(now).filter((n) => n.route === '#/quran').length;
+    assert.ok(before > 0 && remBefore > 0);
+    state.settings.notif.prayers = true;
+    const allBefore = buildNotifications(now).filter((n) => n.route !== '#/quran').length;
+    state.settings.quiet = { on: true, from: '02:00', to: '07:00' };
+    assert.equal(buildOverlays(now).length, 0, 'الفقاعة في ساعات الهدوء');
+    assert.equal(buildNotifications(now).filter((n) => n.route !== '#/quran').length, allBefore, 'تنبيهات الصلاة والأذكار لا تتأثر بساعات الهدوء');
+    assert.equal(buildNotifications(now).filter((n) => n.route === '#/quran').length, 0, 'تذكير قيام الليل في ساعات الهدوء');
+  } finally {
+    Object.assign(state.settings, JSON.parse(saved));
+    state.reminders = savedRem;
+  }
+});
+
+test('تخصيص الرئيسية: الترتيب والإخفاء والاختصارات وبطاقات التحديثات الجديدة', () => {
+  const def = homeLayout(null);
+  assert.deepEqual(def.order, HOME_CARDS.map((c) => c.id));
+  assert.deepEqual(def.shortcuts, DEFAULT_SHORTCUTS);
+  // ترتيب محفوظ قديم ينقصه بطاقة وفيه معرّف لم يعد موجوداً
+  const l = homeLayout({ order: ['streak', 'gone', 'prayer'], hidden: ['ayah', 'gone'], shortcuts: ['qibla', 'qibla', 'nope', ...SHORTCUTS.map((x) => x.id)] });
+  assert.deepEqual(l.order.slice(0, 2), ['streak', 'prayer']);
+  assert.equal(l.order.length, HOME_CARDS.length);
+  assert.deepEqual(l.hidden, ['ayah']);
+  assert.equal(l.shortcuts[0], 'qibla');
+  assert.equal(l.shortcuts.length, MAX_SHORTCUTS);
+  assert.equal(new Set(l.shortcuts).size, l.shortcuts.length);
+  assert.ok(visibleCards({ order: [], hidden: ['ayah'], shortcuts: [] }).indexOf('ayah') === -1);
+  // كل اختصار يفتح صفحة موجودة في التطبيق
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  for (const s of SHORTCUTS) {
+    const route = s.to.replace(/^#\//, '').split('/')[0];
+    assert.ok(new RegExp(`\\b${route}\\b`).test(main.match(/const ROUTES = \{[^}]*\}/)[0]) || route === 'read', `اختصار ${s.id} يفتح صفحة غير موجودة`);
+  }
+});
+
+test('سلامة إعدادات ١٫٥: التأجيل والهدوء والتخصيص والورد الخاص', () => {
+  const st = sanitize(JSON.parse(JSON.stringify({ ...DEFAULTS, settings: { ...DEFAULTS.settings, snooze: [0, 15, 15, 'x', 9999, 5], quiet: { on: 1, from: '25:00', to: '05:00' }, home: { order: 'bad' } }, mywird: [{ id: 'morning-0', n: 0 }, { n: 3 }, 'x'], qiyam: { manual: 1, maghrib: '17:00', fajr: 'x' } })));
+  assert.deepEqual(st.settings.snooze, [5, 15]);
+  assert.deepEqual(st.settings.quiet, { on: true, from: '23:00', to: '05:00' });
+  assert.equal(st.settings.home, null);
+  assert.deepEqual(st.mywird, [{ id: 'morning-0', n: 1 }]);
+  assert.equal(st.qiyam, null);
+  const empty = sanitize(JSON.parse(JSON.stringify({ ...DEFAULTS, settings: { ...DEFAULTS.settings, snooze: [] } })));
+  assert.deepEqual(empty.settings.snooze, [5, 15, 30, 60]);
+});
+
+// ---------- الإصدار ١٫٦: «ادعُ لأخيك» ----------
+import { cardHeading, sourceLine, cardPlainText, DEFAULT_SPEC } from '../src/duacard.js';
+import { duaText, LOVED_DUAS } from '../src/data/loved-duas.js';
+
+test('بطاقة الدعاء: العنوان والاسم المخفي والصيغة والمصدر ونص المشاركة', () => {
+  const base = { ...DEFAULT_SPEC, name: 'عبد الرحمن بن محمد بن عبد الله الطويل', text: 'جَزَاكَ اللَّهُ خَيْرًا.', source: 'رواه الترمذي', kind: 'mathur' };
+  // الاسم الطويل كاملاً دون قص
+  assert.equal(cardHeading(base), 'دعوة طيبة لعبد الرحمن بن محمد بن عبد الله الطويل');
+  // إخفاء الاسم: لا يظهر في العنوان ولا في نص المشاركة
+  const hidden = { ...base, hideName: true };
+  assert.equal(cardHeading(hidden), 'دعوة طيبة لشخص عزيز');
+  assert.ok(cardPlainText(hidden).indexOf('عبد الرحمن') === -1);
+  // المأثور يُنسب لمصدره، والمعدّل «بتصرّف» دون مصدر، ونص المستخدم بلا نسبة
+  assert.equal(sourceLine(base), 'رواه الترمذي');
+  assert.equal(sourceLine({ ...base, kind: 'edited' }), 'دعاء بتصرّف');
+  assert.equal(sourceLine({ ...base, kind: 'own' }), '');
+  assert.equal(sourceLine({ ...base, adapted: true }), 'رواه الترمذي (بتصريف الضمير)');
+  // «لا تنسوه/تنسوها/تنسوهم» بحسب الصيغة، فقط عند تفعيلها
+  assert.ok(cardPlainText(base).indexOf('لا تنسوه') === -1);
+  assert.ok(cardPlainText({ ...base, headline: true, form: 'f' }).indexOf('لا تنسوها من دعائكم') !== -1);
+  assert.ok(cardPlainText({ ...base, headline: true, form: 'p' }).indexOf('لا تنسوهم من دعائكم') !== -1);
+  // بطاقة ذكر: الاسم اختياري
+  assert.equal(cardHeading({ ...base, type: 'text', name: '' }), '');
+  // نص المشاركة لا يحوي غير ما في البطاقة
+  const txt = cardPlainText({ ...base, signature: 'أخوك' });
+  assert.deepEqual(txt.split('\n\n'), ['دعوة طيبة لعبد الرحمن بن محمد بن عبد الله الطويل', 'جَزَاكَ اللَّهُ خَيْرًا.', 'رواه الترمذي', '— أخوك']);
+});
+
+test('الصيغة: له ولها ولهم تُطبَّق على أدعية الغائب فقط', () => {
+  const dead = LOVED_DUAS.find((d) => d.id === 'd-tathbit');
+  assert.deepEqual(duaText(dead, 'f'), { t: dead.tf, adapted: true });
+  assert.deepEqual(duaText(dead, 'p'), { t: dead.tp, adapted: true });
+  assert.deepEqual(duaText(dead, 'm'), { t: dead.t, adapted: false });
+  const ayah = LOVED_DUAS.find((d) => d.id === 'p-irham');
+  assert.deepEqual(duaText(ayah, 'f'), { t: ayah.t, adapted: false });
+});
+
+test('سلامة بيانات «لمن تحب»: الأشخاص والدعوات والتصاميم', () => {
+  const st = sanitize(JSON.parse(JSON.stringify({ ...DEFAULTS, loved: [{ id: 'p1', name: 'أحمد', form: 'x', duas: [{ id: 'd1', t: 'اللهم' }, { t: '' }, 'x'], count: -3 }, { id: 'p2', name: '  ' }, 'bad'], cardDraft: 'bad', cardDesigns: [{ id: 'c1', spec: {} }, { spec: 1 }] })));
+  assert.equal(st.loved.length, 1);
+  assert.equal(st.loved[0].form, 'm');
+  assert.deepEqual(st.loved[0].duas, [{ id: 'd1', t: 'اللهم' }]);
+  assert.equal(st.loved[0].count, 0);
+  assert.equal(st.cardDraft, null);
+  assert.equal(st.cardDesigns.length, 1);
+});
+
+test('الخطوط والثيمات وحجم التطبيق: قيم صالحة فقط، والقديم يعود للافتراضي', () => {
+  const st = sanitize(JSON.parse(JSON.stringify({ ...DEFAULTS, settings: { ...DEFAULTS.settings, theme: 'abyss', uiFont: 'comic', textFont: 'ruqaa', uiScale: 5 } })));
+  assert.equal(st.settings.theme, 'abyss');
+  assert.equal(st.settings.uiFont, 'plex');
+  assert.equal(st.settings.textFont, 'ruqaa');
+  assert.equal(st.settings.uiScale, 1);
+  // كل خط اختياري له ملفاته في الحزمة
+  const fonts = readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8');
+  assert.ok(/UI_FONTS, TEXT_FONTS/.test(fonts));
+});
+
+// ---------- سجل الزكاة والصدقات ----------
+import { statusOf, delivered, remaining, totals, allocatedFor, filterPeople, addDelivery, sanitizeBook } from '../src/zakatlog.js';
+
+test('سجل الزكاة: التسليم الجزئي والكامل، وفصل الزكاة عن الصدقة والعملات', () => {
+  const a = { id: 'a', name: 'أسرة أبي محمد', kind: 'fam', type: 'zakat', group: 'الأقارب', amount: 100, currency: '$', deliveries: [], saveId: 's1' };
+  const b = { id: 'b', name: 'يتيم', kind: 'ind', type: 'sadaqa', group: 'عام', amount: 50, currency: '$', deliveries: [] };
+  const c = { id: 'c', name: 'جار', kind: 'ind', type: 'zakat', group: 'عام', amount: 200000, currency: 'ل.س', deliveries: [], saveId: 's1' };
+  assert.equal(statusOf(a), 'none');
+  assert.ok(addDelivery(a, 40));
+  assert.equal(statusOf(a), 'partial');
+  assert.equal(remaining(a), 60);
+  // لا يُسلَّم أكثر من المتبقي
+  assert.ok(addDelivery(a, 1000));
+  assert.equal(delivered(a), 100);
+  assert.equal(statusOf(a), 'done');
+  assert.equal(addDelivery(a, 5), false);
+  const t = totals([a, b, c]);
+  assert.equal(t.length, 3, 'الزكاة بالدولار والصدقة بالدولار والزكاة بالليرة مجاميع منفصلة');
+  assert.deepEqual(t.map((x) => [x.type, x.currency]), [['zakat', '$'], ['zakat', 'ل.س'], ['sadaqa', '$']]);
+  assert.equal(t[0].delivered, 100);
+  assert.equal(t[2].remaining, 50);
+  // المخصّص من حساب محفوظ: الزكاة المرتبطة به فقط
+  assert.equal(allocatedFor('s1', [a, b, c]), 200100);
+  assert.equal(allocatedFor('s2', [a, b, c]), 0);
+  assert.deepEqual(filterPeople([a, b, c], { type: 'sadaqa' }).map((x) => x.id), ['b']);
+  assert.deepEqual(filterPeople([a, b, c], { status: 'done' }).map((x) => x.id), ['a']);
+  assert.deepEqual(filterPeople([a, b, c], { group: 'عام', q: 'جار' }).map((x) => x.id), ['c']);
+});
+
+test('سجل الزكاة: تصحيح البيانات التالفة دون فقد الصالحة', () => {
+  const b = sanitizeBook({ groups: ['الأقارب', '', 5], saves: [{ id: 's1', due: -4 }, 'x'], people: [
+    { id: 'p1', name: 'أحمد', type: 'x', kind: 'y', group: 'غير موجودة', amount: '12.345', deliveries: [{ amount: 5 }, { amount: -1 }], dueDate: 'غد' },
+    { id: 'p2', name: '' }, null] });
+  assert.deepEqual(b.groups, ['عام', 'الأقارب']);
+  assert.equal(b.saves.length, 1);
+  assert.equal(b.saves[0].due, 0);
+  assert.equal(b.people.length, 1);
+  const p = b.people[0];
+  assert.deepEqual([p.type, p.kind, p.group, p.amount, p.dueDate, p.deliveries.length], ['zakat', 'ind', 'عام', 12.35, '', 1]);
+  assert.equal(sanitizeBook('bad'), null);
+});
+
+test('تقرير الزكاة للطباعة: عربي منسّق، والهاتف والملاحظات لا تظهر إلا باختيار المستخدم', async () => {
+  const { reportHtml } = await import('../src/views/zakat.js');
+  const people = [{ id: 'a', name: 'أسرة <b>س</b>', kind: 'fam', type: 'zakat', group: 'عام', amount: 100, currency: '$', phone: '0999123456', note: 'حي الميدان', deliveries: [{ amount: 40 }] }];
+  const plain = reportHtml(people, []);
+  assert.ok(/dir="rtl"/.test(plain) && /سجل الزكاة والصدقات/.test(plain));
+  assert.ok(plain.indexOf('0999123456') === -1 && plain.indexOf('حي الميدان') === -1);
+  assert.ok(plain.indexOf('<b>س</b>') === -1, 'الأسماء تُهرَّب');
+  const full = reportHtml(people, [], { phone: true, notes: true });
+  assert.ok(full.indexOf('0999123456') !== -1 && full.indexOf('حي الميدان') !== -1);
+});
+
+// ---------- تدقيق ١٫٥: أخطاء أُصلحت ولا يجوز أن تعود ----------
+import { serialize } from '../src/store.js';
+
+test('الحفظ: صورة خلفية البطاقة لا تُكتب في التخزين ولا في النسخة الاحتياطية، وبقية المسودة تبقى', () => {
+  const saved = state.cardDraft;
+  try {
+    state.cardDraft = { name: 'أحمد', text: 'دعاء', bgImage: `data:image/jpeg;base64,${'A'.repeat(200000)}` };
+    const out = serialize();
+    assert.ok(out.length < 150000, 'الصورة تسرّبت إلى التخزين');
+    const back = JSON.parse(out).cardDraft;
+    assert.deepEqual([back.name, back.text, back.bgImage], ['أحمد', 'دعاء', '']);
+    assert.ok(state.cardDraft.bgImage.length > 1000, 'الصورة يجب أن تبقى في الذاكرة أثناء الجلسة');
+  } finally { state.cardDraft = saved; }
+});
+
+test('التنسيقات: كل ارتفاع بوحدة vh مقسوم على نسبة تكبير الخط حتى لا تتجاوز النوافذ الشاشة', () => {
+  const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+  const all = css.match(/\d+vh/g) || [];
+  const safe = css.match(/calc\(\d+vh \/ var\(--zoom, 1\)\)/g) || [];
+  assert.ok(all.length > 5);
+  assert.equal(all.length, safe.length, 'يوجد vh غير مقسوم على --zoom');
+});
+
+// ---------- توقيع المطوّر ----------
+import { devSignature, DEVELOPER } from '../src/dev-signature.js';
+
+test('توقيع المطوّر: المحتوى المعتمد وروابط التواصل الثلاثة صحيحة، والنص مهرَّب', () => {
+  const html = devSignature();
+  for (const t of ['تطوير وتصميم', 'حسين محمد علي الطويل', 'اللهم بارك في علمه وعمله', 'وأجراً لا ينقطع.', '«لا تنسَ المطوّر ووالديه من دعوة صادقة بظهر الغيب».', 'تواصل مع المطوّر']) assert.ok(html.indexOf(t) !== -1, `ينقص: ${t}`);
+  assert.deepEqual(DEVELOPER.links.map((l) => l.href), ['https://t.me/HUSSEIN_TAWEEL', 'https://wa.me/963958700900', 'mailto:husseintaweel2022@gmail.com']);
+  for (const l of DEVELOPER.links) assert.ok(html.indexOf(`href="${l.href}"`) !== -1);
+  assert.ok(devSignature({ ...DEVELOPER, name: '<b>x</b>' }).indexOf('<b>x</b>') === -1);
+});

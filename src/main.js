@@ -23,6 +23,15 @@ import * as zakat from './views/zakat.js';
 import * as group from './views/group.js';
 import * as mosques from './views/mosques.js';
 import * as suras from './views/suras.js';
+import * as qiyam from './views/qiyam.js';
+import * as feel from './views/feel.js';
+import * as customize from './views/customize.js';
+import * as mywird from './views/mywird.js';
+import * as loved from './views/loved.js';
+import * as card from './views/card.js';
+import * as hadith from './views/hadith.js';
+import * as prophets from './views/prophets.js';
+import * as hajj from './views/hajj.js';
 import * as setup from './views/setup.js';
 import { actions as commonActions } from './views/common.js';
 import { actions as dhikrActions } from './views/dhikr.js';
@@ -34,7 +43,7 @@ const TABS = [
   { id: 'tasbih', label: 'المسبحة', icon: 'beads' },
   { id: 'more', label: 'المزيد', icon: 'grid' },
 ];
-const ROUTES = { setup, home, quran, mushaf, suras, group, mosques, library, read: reader, tasbih, more, journal, reminders, settings, qibla, names, zakat, whatsnew: more.whatsnew };
+const ROUTES = { setup, home, quran, mushaf, suras, group, mosques, library, read: reader, tasbih, more, journal, reminders, settings, qibla, names, zakat, qiyam, feel, customize, mywird, loved, card, hadith, prophets, hajj, whatsnew: more.whatsnew, about: more.about };
 const ACTIONS = Object.assign({}, commonActions, dhikrActions, ...Object.values(ROUTES).map((v) => v.actions || {}));
 const TAB_IDS = TABS.map((t) => t.id);
 
@@ -79,6 +88,7 @@ export function render(keepScroll = false) {
 
 window.addEventListener('hashchange', () => render());
 document.addEventListener('app:refresh', () => render(true));
+document.addEventListener('app:save-failed', () => toast('تعذّر حفظ التغييرات: مساحة التخزين ممتلئة. صدّر نسخة احتياطية من الإعدادات.', 'info'));
 document.addEventListener('app:theme', () => { applyTheme(); setDigits(state.settings.digits); render(true); });
 
 document.addEventListener('click', (e) => {
