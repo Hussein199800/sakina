@@ -51,7 +51,10 @@ export function applyTheme() {
     '--quran': `${(TEXT_FONTS[state.settings.textFont] || TEXT_FONTS.amiri).family}, 'Amiri', 'Traditional Arabic', serif`,
   };
   // حجم خط التطبيق كله: تكبير الواجهة بنسبة يختارها المستخدم
-  root.style.zoom = state.settings.uiScale && state.settings.uiScale !== 1 ? String(state.settings.uiScale) : '';
+  const zoom = state.settings.uiScale && state.settings.uiScale !== 1 ? state.settings.uiScale : 1;
+  root.style.zoom = zoom === 1 ? '' : String(zoom);
+  // وحدات vh لا تتأثر بالتكبير، فتُقسم عليه في التنسيقات حتى لا تتجاوز النوافذ ارتفاع الشاشة
+  root.style.setProperty('--zoom', String(zoom));
   for (const k of Object.keys(vars)) root.style.setProperty(k, vars[k]);
   const meta = document.querySelector('meta[name=theme-color]');
   if (meta) meta.setAttribute('content', t.bg);

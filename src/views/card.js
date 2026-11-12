@@ -18,7 +18,17 @@ let showAll = false;
 let panel = 'template';
 let lastParam = null;
 
-const spec = () => { if (!state.cardDraft) state.cardDraft = { ...DEFAULT_SPEC }; return state.cardDraft; };
+// المسودة المحفوظة قد تكون من إصدار أقدم أو ناقصة الحقول، فتُكمَّل بالقيم الافتراضية مرة واحدة
+let normalized = null;
+const spec = () => {
+  if (!state.cardDraft) state.cardDraft = { ...DEFAULT_SPEC };
+  if (normalized !== state.cardDraft) {
+    const d = state.cardDraft;
+    for (const k of Object.keys(DEFAULT_SPEC)) if (typeof d[k] !== typeof DEFAULT_SPEC[k]) d[k] = DEFAULT_SPEC[k];
+    normalized = d;
+  }
+  return state.cardDraft;
+};
 const set = (patch, rerender = true) => { Object.assign(spec(), patch); save(); if (rerender) refresh(); };
 const fresh = (patch = {}) => { state.cardDraft = { ...DEFAULT_SPEC, ...patch }; step = 1; showAll = false; save(); };
 
@@ -107,8 +117,10 @@ function footer() {
 }
 
 export function render(param) {
-  if (param !== lastParam) {
+  // «new» و«p:» و«d:» أوامر تُنفَّذ مرة ثم يصبح العنوان #/card، فيعمل الأمر نفسه عند فتحه مرة أخرى
+  if (param && param !== lastParam) {
     lastParam = param;
+    setTimeout(() => { if (window.location.hash === `#/card/${param}`) { history.replaceState(null, '', '#/card'); lastParam = null; } }, 0);
     if (param === 'new') fresh();
     else if (param && param.startsWith('p:')) {
       const p = state.loved.find((x) => x.id === param.slice(2));
@@ -125,14 +137,12 @@ export function render(param) {
 }
 
 let renderSeq = 0;
-let lastOut = null;
 async function drawPreview(root) {
   const box = root.querySelector('[data-preview]');
   if (!box) return;
   const seq = ++renderSeq;
   const out = await renderDuaCard(spec());
   if (seq !== renderSeq) return;
-  lastOut = out;
   box.innerHTML = `<img src="${out.url}" alt="معاينة البطاقة: ${esc(cardHeading(spec()))}">`;
   root.querySelector('[data-warn]').hidden = !out.overflow;
   root.querySelectorAll('[data-out]').forEach((b) => { b.disabled = out.overflow; });
@@ -167,12 +177,16 @@ export function mount(root) {
     if (k === 'text' && spec().kind === 'mathur' && spec().duaId) {
       const d = LOVED_DUAS.find((x) => x.id === spec().duaId);
       if (d && el.value.trim() !== duaText(d, spec().form).t) patch.kind = 'edited';
+    } else if (k === 'text' && spec().kind === 'edited' && spec().duaId) {
+      // أعاد المستخدم النص إلى أصله: يعود مأثوراً بمصدره
+      const d = LOVED_DUAS.find((x) => x.id === spec().duaId);
+      if (d && el.value.trim() === duaText(d, spec().form).t) patch.kind = 'mathur';
     }
     const kindChanged = patch.kind && patch.kind !== spec().kind;
     set(patch, false);
     // تحديث التنبيه دون إعادة رسم الصفحة حتى لا يفقد حقل الكتابة تركيزه
     const kindEl = root.querySelector('.cd-kind');
-    if (kindChanged && kindEl) kindEl.innerHTML = `${icon('edit')} عدّلت نصاً مأثوراً، فسيُكتب «دعاء بتصرّف» دون نسبته للمصدر`;
+    if (kindChanged && kindEl) kindEl.innerHTML = patch.kind === 'mathur' ? `${icon('check')} نص مأثور كما ورد: ${esc(num(sourceLine(spec())))}` : `${icon('edit')} عدّلت نصاً مأثوراً، فسيُكتب «دعاء بتصرّف» دون نسبته للمصدر`;
   }));
   const bg = root.querySelector('[data-bg]');
   if (bg) bg.addEventListener('change', async () => {

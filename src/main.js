@@ -88,6 +88,7 @@ export function render(keepScroll = false) {
 
 window.addEventListener('hashchange', () => render());
 document.addEventListener('app:refresh', () => render(true));
+document.addEventListener('app:save-failed', () => toast('تعذّر حفظ التغييرات: مساحة التخزين ممتلئة. صدّر نسخة احتياطية من الإعدادات.', 'info'));
 document.addEventListener('app:theme', () => { applyTheme(); setDigits(state.settings.digits); render(true); });
 
 document.addEventListener('click', (e) => {

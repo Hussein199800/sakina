@@ -16,7 +16,9 @@ const sourceOf = (id) => (id.startsWith('custom-') ? 'من أذكاري الخا
 const short = (t) => { const w = dhikrText(t).replace(/\n+/g, ' ').split(' '); return w.length > 14 ? `${w.slice(0, 14).join(' ')}…` : w.join(' '); };
 
 export function render() {
-  const l = list().filter((w) => itemOf(w.id));
+  // ذكر خاص حُذف من «أذكاري» يُزال من الورد، وإلا اختلف ترتيب الأزرار عن ترتيب القائمة المحفوظة
+  if (list().some((w) => !itemOf(w.id))) { state.mywird = list().filter((w) => itemOf(w.id)); save(); }
+  const l = list();
   return `${fullHead('وردي الخاص', 'ورد شخصي من اختيارك')}
     <div class="mw-page">
       <p class="note">${icon('info')} اختر أذكاراً من المكتبة وحدّد عدد تكرار كل منها. الأعداد هنا من اختيارك، والفضل والمصدر يبقيان كما في الذكر الأصلي.</p>

@@ -436,3 +436,26 @@ test('تقرير الزكاة للطباعة: عربي منسّق، والهات
   const full = reportHtml(people, [], { phone: true, notes: true });
   assert.ok(full.indexOf('0999123456') !== -1 && full.indexOf('حي الميدان') !== -1);
 });
+
+// ---------- تدقيق ١٫٥: أخطاء أُصلحت ولا يجوز أن تعود ----------
+import { serialize } from '../src/store.js';
+
+test('الحفظ: صورة خلفية البطاقة لا تُكتب في التخزين ولا في النسخة الاحتياطية، وبقية المسودة تبقى', () => {
+  const saved = state.cardDraft;
+  try {
+    state.cardDraft = { name: 'أحمد', text: 'دعاء', bgImage: `data:image/jpeg;base64,${'A'.repeat(200000)}` };
+    const out = serialize();
+    assert.ok(out.length < 150000, 'الصورة تسرّبت إلى التخزين');
+    const back = JSON.parse(out).cardDraft;
+    assert.deepEqual([back.name, back.text, back.bgImage], ['أحمد', 'دعاء', '']);
+    assert.ok(state.cardDraft.bgImage.length > 1000, 'الصورة يجب أن تبقى في الذاكرة أثناء الجلسة');
+  } finally { state.cardDraft = saved; }
+});
+
+test('التنسيقات: كل ارتفاع بوحدة vh مقسوم على نسبة تكبير الخط حتى لا تتجاوز النوافذ الشاشة', () => {
+  const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+  const all = css.match(/\d+vh/g) || [];
+  const safe = css.match(/calc\(\d+vh \/ var\(--zoom, 1\)\)/g) || [];
+  assert.ok(all.length > 5);
+  assert.equal(all.length, safe.length, 'يوجد vh غير مقسوم على --zoom');
+});

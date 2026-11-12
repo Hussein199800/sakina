@@ -10,7 +10,7 @@ import { NAMES } from '../data/names.js';
 import { homeLayout, visibleCards, SHORTCUTS } from '../home-layout.js';
 import { location, localToday, hijriOf, nextPrayer, dayPeriod, GREETINGS, suggestedWird, catProgress, lastWeek, streak, methodKey } from '../services.js';
 import { fmtTime, fmtCountdown, ring, bar, pct, daily, refresh } from './common.js';
-import { openSheet, toast, tapFeedback, THEMES, activeTheme, dhikrText } from '../ui.js';
+import { toast, THEMES, activeTheme, dhikrText } from '../ui.js';
 import { registerText, toolsRow } from './dhikr.js';
 import { todayRange, readToday, progress as khatmaProgress } from '../khatma.js';
 import { suraOf, suraName } from '../quran.js';

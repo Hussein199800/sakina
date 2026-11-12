@@ -1,5 +1,5 @@
 // التبويب الخامس: التخصيص والأدوات
-import { state, save, flush, replaceAll, clearAll, DEFAULTS } from '../store.js';
+import { state, save, flush, replaceAll, clearAll, DEFAULTS, serialize } from '../store.js';
 import { icon } from '../icons.js';
 import { num, esc, normalize } from '../text.js';
 import { CITIES, CITIES_SORTED } from '../data/cities.js';
@@ -252,7 +252,7 @@ export const actions = {
   'setup-again': () => { restartSetup(); document.location.hash = '#/setup'; },
   'data-export': async () => {
     flush();
-    await saveTextFile(`sakina-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 1));
+    await saveTextFile(`sakina-backup-${new Date().toISOString().slice(0, 10)}.json`, serialize(1));
     toast('تم تجهيز نسخة من بياناتك', 'download');
   },
   'data-clear': async () => {

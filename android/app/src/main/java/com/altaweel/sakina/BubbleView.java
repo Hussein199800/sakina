@@ -143,12 +143,15 @@ public final class BubbleView {
             MAIN.removeCallbacks(collapseTask);
             texts.setVisibility(View.GONE);
             snooze.setVisibility(View.GONE);
+            // تُخفى الدائرة أثناء اختيار المدة حتى تتسع المدد الأربع لعرض الشاشات الصغيرة
+            icon.setVisibility(View.GONE);
             snoozeRow.removeAllViews();
+            final boolean arab = OverlayScheduler.arabDigits(app);
             for (final int m : OverlayScheduler.snoozeMinutes(app)) {
-                TextView c = chip(app, label(m), true);
+                TextView c = chip(app, label(m, arab), true);
                 c.setOnClickListener(x -> {
                     OverlayScheduler.snooze(app, m, fTitle, fBody, route);
-                    Toast.makeText(app, "سيظهر التذكير بعد " + label(m), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(app, "سيظهر التذكير بعد " + label(m, arab), Toast.LENGTH_SHORT).show();
                     dismiss(wm);
                 });
                 snoozeRow.addView(c);
@@ -233,10 +236,12 @@ public final class BubbleView {
         root.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(260).start();
 
         // بعد ثوانٍ تُطوى البطاقة وتبقى الدائرة الصغيرة فقط
-        collapseTask = () -> pill.animate().alpha(0f).setDuration(220).setListener(new AnimatorListenerAdapter() {
+        // بعد ثوانٍ يُطوى النص ويبقى زر «تأجيل» ظاهراً مع الدائرة وزر الإغلاق
+        collapseTask = () -> texts.animate().alpha(0f).setDuration(220).setListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator a) {
-                pill.setVisibility(View.GONE);
+                texts.setVisibility(View.GONE);
+                pill.setPadding(dp(app, 6), dp(app, 6), dp(app, 6), dp(app, 6));
                 try { wm.updateViewLayout(root, lp); } catch (Exception ignored) { }
             }
         }).start();
@@ -265,12 +270,21 @@ public final class BubbleView {
     }
 
     /** ٥ د، ١٥ د، ساعة، ساعتان… */
-    static String label(int m) {
+    static String label(int m, boolean arab) {
         if (m % 60 == 0) {
             int h = m / 60;
-            return h == 1 ? "ساعة" : h == 2 ? "ساعتين" : h + " ساعات";
+            return h == 1 ? "ساعة" : h == 2 ? "ساعتين" : digits(h, arab) + " ساعات";
         }
-        return m + " د";
+        return digits(m, arab) + " د";
+    }
+
+    /** الأرقام بالنظام الذي اختاره المستخدم في التطبيق */
+    private static String digits(int n, boolean arab) {
+        String s = String.valueOf(n);
+        if (!arab) return s;
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) b.append((char) ('\u0660' + (s.charAt(i) - '0')));
+        return b.toString();
     }
 
     private static void open(Context app, String route) {

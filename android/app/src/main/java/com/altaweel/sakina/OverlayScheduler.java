@@ -23,6 +23,7 @@ public final class OverlayScheduler {
     static final String ACTION_SHOW = "com.altaweel.sakina.SHOW_BUBBLE";
     static final String KEY_SNOOZE = "snooze";
     static final String KEY_QUIET = "quiet";
+    static final String KEY_ARAB = "arab";
     /** معرّف ثابت للتأجيل: تأجيل جديد يستبدل السابق فلا تتكرر الفقاعة */
     static final int SNOOZE_ID = 6999;
 
@@ -49,10 +50,15 @@ public final class OverlayScheduler {
     }
 
     /** إعدادات الفقاعة من التطبيق: مدد التأجيل بالدقائق، وساعات الهدوء {on, from, to} بالدقائق من منتصف الليل */
-    public static void config(Context ctx, String snoozeJson, String quietJson) {
+    public static void config(Context ctx, String snoozeJson, String quietJson, boolean arabDigits) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_ARAB, arabDigits)
             .putString(KEY_SNOOZE, snoozeJson == null ? "[5,15,30,60]" : snoozeJson)
             .putString(KEY_QUIET, quietJson == null ? "{}" : quietJson).apply();
+    }
+
+    static boolean arabDigits(Context ctx) {
+        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ARAB, true);
     }
 
     static int[] snoozeMinutes(Context ctx) {

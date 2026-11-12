@@ -240,7 +240,7 @@ export function buildOverlays(now = new Date()) {
 async function doReschedule() {
   if (overlaySupported) {
     const q = state.settings.quiet;
-    await scheduleOverlays(buildOverlays(), { snooze: state.settings.snooze, quiet: { on: q.on, from: toMin(q.from), to: toMin(q.to) } });
+    await scheduleOverlays(buildOverlays(), { snooze: state.settings.snooze, quiet: { on: q.on, from: toMin(q.from), to: toMin(q.to) }, digits: state.settings.digits });
   }
   if (!notificationsSupported) return;
   try { await scheduleAll(buildNotifications()); } catch (e) { /* تجاهل أخطاء الجدولة */ }

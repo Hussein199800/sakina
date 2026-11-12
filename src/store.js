@@ -166,8 +166,18 @@ export function save() {
 }
 export function flush() {
   clearTimeout(timer);
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* التخزين ممتلئ أو محجوب */ }
+  try {
+    localStorage.setItem(KEY, serialize());
+    saveFailed = false;
+  } catch (e) {
+    // التخزين ممتلئ أو محجوب: يُنبَّه المستخدم مرة واحدة بدل ضياع التغييرات بصمت
+    if (!saveFailed && typeof document !== 'undefined') document.dispatchEvent(new Event('app:save-failed'));
+    saveFailed = true;
+  }
 }
+let saveFailed = false;
+/** نص الحفظ والنسخة الاحتياطية: صورة خلفية بطاقة الدعاء تبقى في الذاكرة فقط لأنها كبيرة */
+export const serialize = (space) => JSON.stringify(state, (k, v) => (k === 'bgImage' ? '' : v), space);
 
 /** تقدّم اليوم يُصفَّر تلقائياً مع بداية يوم جديد */
 export function today() {

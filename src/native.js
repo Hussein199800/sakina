@@ -24,7 +24,7 @@ export async function openOverlaySettings() { if (overlaySupported) await Overla
 /** @param {Array<{id:number, at:Date, title:string, body:string, route:string}>} items */
 export async function scheduleOverlays(items, config = {}) {
   if (!overlaySupported) return;
-  try { await Overlay.schedule({ items: items.map((i) => ({ ...i, at: i.at.getTime() })), snooze: config.snooze, quiet: config.quiet }); } catch (e) { /* غير متاح */ }
+  try { await Overlay.schedule({ items: items.map((i) => ({ ...i, at: i.at.getTime() })), snooze: config.snooze, quiet: config.quiet, digits: config.digits }); } catch (e) { /* غير متاح */ }
 }
 export async function showOverlayNow(title, body, route) {
   if (!overlaySupported) return false;
