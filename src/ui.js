@@ -1,4 +1,5 @@
 // أدوات الواجهة المشتركة: الثيمات، الإشعارات المنبثقة، الألواح السفلية، الصوت، بطاقة المشاركة
+import { UI_FONTS, TEXT_FONTS, fontFamilyName } from './fonts.js';
 import { state } from './store.js';
 import { icon } from './icons.js';
 import { vibrate, setStatusBar } from './native.js';
@@ -9,6 +10,10 @@ export const THEMES = {
   midnight: { name: 'السكينة الليلية', hint: 'وضع داكن مريح', bg: '#0E161E', card: '#17222D', primary: '#4DB6AC', secondary: '#E6C280', text: '#EDF2F7', dark: true },
   dawn: { name: 'رمال الفجر', hint: 'قراءة دافئة', bg: '#FAF6F0', card: '#FFFFFF', primary: '#8A5A36', secondary: '#C99E7A', text: '#2B2118', dark: false },
   royal: { name: 'الروضة الملكية', hint: 'بنفسجي هادئ', bg: '#F6F5FA', card: '#FFFFFF', primary: '#5E548E', secondary: '#9F86C0', text: '#231942', dark: false },
+  beige: { name: 'البيج الدافئ', hint: 'بيج وأخضر داكن', bg: '#F5F2EB', card: '#FFFFFF', primary: '#2B4A3F', secondary: '#C29A5B', text: '#1E2A25', dark: false },
+  olive: { name: 'الزيتون', hint: 'أخضر زيتوني دافئ', bg: '#F4F3EA', card: '#FFFFFF', primary: '#56662B', secondary: '#B9893F', text: '#23261A', dark: false },
+  ocean: { name: 'البحر الهادئ', hint: 'أزرق بحري', bg: '#F1F5F8', card: '#FFFFFF', primary: '#1D5675', secondary: '#3E9BB3', text: '#12242F', dark: false },
+  abyss: { name: 'الليل الحالك', hint: 'أسود يوفّر البطارية', bg: '#000000', card: '#0E1110', primary: '#44B98E', secondary: '#D9B36C', text: '#E8EEEB', dark: true },
 };
 
 const rgba = (hex, a) => {
@@ -42,7 +47,11 @@ export function applyTheme() {
     '--on-primary': t.dark ? '#0E161E' : '#FFFFFF',
     '--shadow': t.dark ? '0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.25)' : `0 1px 2px ${rgba(t.text, 0.04)}, 0 10px 28px ${rgba(t.text, 0.06)}`,
     '--reader-size': `${state.settings.fontSize}px`,
+    '--ui': `${(UI_FONTS[state.settings.uiFont] || UI_FONTS.plex).family}, 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif`,
+    '--quran': `${(TEXT_FONTS[state.settings.textFont] || TEXT_FONTS.amiri).family}, 'Amiri', 'Traditional Arabic', serif`,
   };
+  // حجم خط التطبيق كله: تكبير الواجهة بنسبة يختارها المستخدم
+  root.style.zoom = state.settings.uiScale && state.settings.uiScale !== 1 ? String(state.settings.uiScale) : '';
   for (const k of Object.keys(vars)) root.style.setProperty(k, vars[k]);
   const meta = document.querySelector('meta[name=theme-color]');
   if (meta) meta.setAttribute('content', t.bg);
@@ -173,6 +182,8 @@ export const CARD_BACKGROUNDS = {
   paper: ['#FFFDF7', '#F1ECE0', '#1F2A24', '#1F5E43'],
 };
 export const CARD_SIZES = { square: [1080, 1080], post: [1080, 1350], story: [1080, 1920] };
+/** خط النصوص المختار، بصيغة صالحة للرسم على Canvas */
+export const textFamily = () => `'${fontFamilyName(TEXT_FONTS[state.settings.textFont] || TEXT_FONTS.amiri)}'`;
 export const DEFAULT_CARD = { bg: 'theme', size: 'post', scale: 1, source: true, brand: true, ornament: true };
 
 const darken = (hex, f) => {
@@ -199,7 +210,7 @@ export async function renderShareCard({ text, source, title }, o = DEFAULT_CARD)
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H; cv.dir = 'rtl';
   const c = cv.getContext('2d');
-  try { await Promise.all([document.fonts.load('700 48px Amiri'), document.fonts.load('500 30px "IBM Plex Sans Arabic"')]); } catch (e) { /* خط النظام */ }
+  try { await Promise.all([document.fonts.load(`700 48px ${textFamily()}`), document.fonts.load('500 30px "IBM Plex Sans Arabic"')]); } catch (e) { /* خط النظام */ }
   const g = c.createLinearGradient(0, 0, W, H);
   g.addColorStop(0, c1);
   g.addColorStop(1, c2);
@@ -229,7 +240,7 @@ export async function renderShareCard({ text, source, title }, o = DEFAULT_CARD)
   let size = Math.round(58 * opt.scale);
   let lines;
   for (; size >= 26; size -= 2) {
-    c.font = `700 ${size}px Amiri, serif`;
+    c.font = `700 ${size}px ${textFamily()}, Amiri, serif`;
     lines = wrapLines(c, body, W - pad * 2 - 100);
     if (lines.length * size * 1.75 < boxH - 60) break;
   }

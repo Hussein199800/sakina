@@ -1029,3 +1029,42 @@ textarea.plain { font-family: var(--ui) !important; font-size: 16px !important; 
 .cd-actions .btn { font-size: 13px; padding: 0 6px; line-height: 1.3; }
 .cd-actions .btn[disabled] { opacity: .45; }
 @media (min-width: 840px) { .lv-entries { grid-template-columns: 1fr 1fr; max-width: 760px; } .cd-foot { max-width: 680px; } }
+.font-chip { font-size: 15px; }
+.font-chip small { font-family: var(--ui); font-size: 11px; opacity: .7; }
+.theme-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* ---------- الزكاة: المستحقون والسجل ---------- */
+.z-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.z-fold > summary::-webkit-details-marker { display: none; }
+.z-fold > summary small { font-weight: 400; font-size: 12px; margin-inline-start: auto; }
+.zp-groups { margin: 4px 0 12px; }
+.chip.ghost { background: transparent; border: 1.5px dashed var(--line); color: var(--muted); }
+.zp-list { padding: 2px 0; }
+.zp-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; min-height: 64px; text-align: right; }
+.zp-row + .zp-row { border-top: 1px solid var(--line); }
+.zp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.45; }
+.zp-main b { overflow-wrap: anywhere; }
+.zp-main small { color: var(--muted); font-size: 12px; }
+.zp-side { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; line-height: 1.35; }
+.zp-side b { font-size: 14.5px; }
+.zp-type { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 8px; background: var(--primary-soft); color: var(--primary); }
+.zp-type.sadaqa { background: var(--secondary-soft); color: var(--secondary); }
+.zp-st { font-size: 11.5px; padding: 1px 8px; border-radius: 8px; background: var(--tbg); color: var(--tfg); }
+.z-fab { position: sticky; bottom: calc(var(--tab-h) + 24px + var(--safe-bottom)); margin-top: 12px; box-shadow: var(--shadow); }
+.zp-two { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; align-items: end; }
+.zp-two input { width: 100%; }
+.zp-more summary { cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--primary); min-height: 44px; font-size: 14px; }
+.zp-deliv { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 14px; background: var(--primary-soft); margin: 8px 0; }
+.zp-deliv input { height: 44px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); padding: 0 10px; }
+.zl-totals { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; margin-bottom: 10px; }
+.zl-total { padding: 12px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.zl-total.zakat { border-color: var(--primary-mid); }
+.zl-total small, .zl-total span { font-size: 11.5px; color: var(--muted); }
+.zl-total b { font-size: 17px; }
+.zl-save { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px dashed var(--line); }
+.zl-save > div:first-child { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.zl-save small { color: var(--muted); font-size: 11.5px; }
+.zl-nums { display: flex; flex-direction: column; align-items: flex-start; }
+.zl-filters { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 10px; }
+.zl-sel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-gap: 6px; }
+.zl-sel select { height: 42px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); padding: 0 6px; font-size: 12.5px; min-width: 0; }

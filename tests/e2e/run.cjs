@@ -47,7 +47,7 @@ const server = http.createServer((req, res) => {
     // أخطاء تحميل الشبكة متوقعة في اختبار انقطاع خدمة الخرائط، ولها فحص خاص
     page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(`${theme}: ${m.text()}`); });
     const routes = theme === 'oasis'
-      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques', 'suras', 'suras/112', 'read/anger', 'read/distress', 'library/awrad', 'library/feel', 'feel/angry', 'feel/sick', 'qiyam', 'customize', 'mywird', 'about', 'read/istighfar', 'read/mywird', 'library/loved', 'loved', 'card/new']
+      ? ['home', 'quran', 'mushaf/1', 'mushaf/50', 'library', 'read/morning', 'read/evening:3', 'tasbih', 'more', 'journal', 'reminders', 'settings', 'qibla', 'names', 'whatsnew', 'read/favorites', 'read/custom', 'read/salawat', 'read/hamd', 'zakat', 'group', 'mosques', 'suras', 'suras/112', 'read/anger', 'read/distress', 'library/awrad', 'library/feel', 'feel/angry', 'feel/sick', 'qiyam', 'customize', 'mywird', 'about', 'read/istighfar', 'read/mywird', 'library/loved', 'loved', 'card/new', 'zakat/people', 'zakat/log']
       : ['home', 'quran', 'mushaf/2', 'read/morning', 'more', 'suras/96'];
     for (const r of routes) {
       await page.goto(`${base}#/${r}`);
@@ -83,7 +83,7 @@ const server = http.createServer((req, res) => {
       if (!n) errors.push('البحث بدون تشكيل لم يُرجع نتائج');
       if (shots) await page.screenshot({ path: path.join(OUT, 'oasis-search.png') });
       // حاسبة الزكاة: سعر الذهب ونقود بأرقام هندية
-      await page.goto(`${base}#/zakat`);
+      await page.goto(`${base}#/zakat/calc`);
       await page.waitForTimeout(300);
       await page.fill('[data-z="goldPrice"]', '٤٠٠٠');
       await page.fill('[data-z="cash"]', '400000');
@@ -317,6 +317,45 @@ const server = http.createServer((req, res) => {
       await page.waitForTimeout(400);
       if (!(await page.$('[data-to^="#/card/d:"]'))) errors.push('التصميم المحفوظ لا يظهر في «لمن تحب»');
       if (await page.$('#lib-q')) errors.push('بحث الأذكار ظاهر في «لمن تحب»');
+      // ١٫٧: الزكاة — حفظ الحساب، ومستحق مرتبط به، وتسليم جزئي، والسجل والطباعة
+      await page.goto(`${base}#/zakat/calc`);
+      await page.waitForTimeout(400);
+      await page.click('[data-act="z-save"]');
+      await page.waitForTimeout(300);
+      const zb = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).zakatBook);
+      if (!zb || zb.saves.length !== 1) errors.push(`لم يُحفظ حساب الزكاة في السجل: ${JSON.stringify(zb)}`);
+      await page.click('[data-act="z-tab"][data-k="people"]');
+      await page.waitForTimeout(400);
+      await page.click('.z-fab');
+      await page.waitForTimeout(400);
+      await page.click('.sheet [data-kind="fam"]');
+      await page.fill('.sheet [data-pf="name"]', 'أسرة أبي أحمد');
+      await page.fill('.sheet [data-pf="amount"]', '١٥٠٠');
+      await page.click('.sheet .zp-more summary');
+      await page.selectOption('.sheet [data-pf="saveId"]', { index: 1 });
+      await page.click('.sheet [data-save]');
+      await page.waitForTimeout(400);
+      await page.click('.zp-row');
+      await page.waitForTimeout(400);
+      await page.fill('.sheet [data-dl]', '٥٠٠');
+      await page.click('.sheet [data-deliver]');
+      await page.waitForTimeout(400);
+      const zp = await page.evaluate(() => JSON.parse(localStorage.getItem('sakina.v1')).zakatBook.people[0]);
+      if (!zp || zp.amount !== 1500 || zp.deliveries.length !== 1 || zp.deliveries[0].amount !== 500 || !zp.saveId) errors.push(`المستحق أو التسليم الجزئي غير صحيح: ${JSON.stringify(zp)}`);
+      if ((await page.textContent('.zp-row')).indexOf('تسليم جزئي') === -1) errors.push('لا تظهر حالة التسليم الجزئي');
+      await page.click('[data-act="z-tab"][data-k="log"]');
+      await page.waitForTimeout(400);
+      if (!(await page.$('.zl-total.zakat'))) errors.push('لا تظهر مجاميع الزكاة في السجل');
+      await page.selectOption('[data-zf="status"]', 'done');
+      await page.waitForTimeout(200);
+      if (await page.$('[data-zlog] .zp-row')) errors.push('تصفية «مُسلَّم» تعرض مستحقاً لم يكتمل تسليمه');
+      await page.selectOption('[data-zf="status"]', '');
+      await page.waitForTimeout(200);
+      await page.click('[data-act="zl-print"]');
+      await page.waitForTimeout(400);
+      if (!(await page.$('.sheet [data-ph]'))) errors.push('نافذة خيارات الطباعة لا تظهر');
+      await page.click('.sheet [data-close]');
+      await page.waitForTimeout(300);
       // قيام الليل: إدخال يدوي
       await page.goto(`${base}#/qiyam`);
       await page.waitForTimeout(300);

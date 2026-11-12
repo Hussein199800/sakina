@@ -2,6 +2,10 @@
 // إن لم يتسع النص أُعيد overflow=true لينبّه المصمم المستخدم، ولا يُقص الاسم أبداً.
 import { num } from './text.js';
 import { REMEMBER } from './data/loved-duas.js';
+import { state } from './store.js';
+import { TEXT_FONTS, fontFamilyName } from './fonts.js';
+
+const textFamily = () => `'${fontFamilyName(TEXT_FONTS[state.settings.textFont] || TEXT_FONTS.amiri)}'`;
 
 export const DUA_SIZES = {
   story: { label: 'حالة ٩:١٦', w: 1080, h: 1920 },
@@ -98,7 +102,7 @@ export async function renderDuaCard(spec, { measureOnly = false } = {}) {
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const c = cv.getContext('2d');
-  try { await Promise.all([document.fonts.load('700 48px Amiri'), document.fonts.load('600 30px "IBM Plex Sans Arabic"')]); } catch (e) { /* خط النظام */ }
+  try { await Promise.all([document.fonts.load(`700 48px ${textFamily()}`), document.fonts.load('600 30px "IBM Plex Sans Arabic"')]); } catch (e) { /* خط النظام */ }
 
   if (s.bgImage) {
     try {
@@ -179,13 +183,13 @@ export async function renderDuaCard(spec, { measureOnly = false } = {}) {
   let lines = [];
   let overflow = false;
   for (; bs >= minBody; bs -= 2) {
-    c.font = `700 ${bs}px Amiri, serif`;
+    c.font = `700 ${bs}px ${textFamily()}, Amiri, serif`;
     lines = wrap(c, s.text.trim() || ' ', maxW);
     if (lines.length * bs * 1.8 <= bodyBottom - bodyTop) break;
   }
   if (bs < minBody) {
     bs = minBody;
-    c.font = `700 ${bs}px Amiri, serif`;
+    c.font = `700 ${bs}px ${textFamily()}, Amiri, serif`;
     lines = wrap(c, s.text.trim() || ' ', maxW);
     overflow = true;
   }

@@ -92,6 +92,24 @@ export async function shareText(text, title = 'سكينة') {
   return copyText(text).then(() => 'copied');
 }
 
+const Printer = registerPlugin('SakinaPrint');
+/** طباعة صفحة HTML عبر نافذة طباعة النظام (ومنها «حفظ كملف PDF») */
+export async function printHtml(html, title = 'سكينة') {
+  if (isAndroid) {
+    try { await Printer.print({ html, title }); return true; } catch (e) { return false; }
+  }
+  try {
+    const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px';
+    document.body.appendChild(f);
+    f.contentDocument.open();
+    f.contentDocument.write(html);
+    f.contentDocument.close();
+    setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 2000); }, 300);
+    return true;
+  } catch (e) { return false; }
+}
+
 const Gallery = registerPlugin('SakinaGallery');
 /** حفظ صورة PNG في معرض الصور (ألبوم سكينة) على أندرويد، أو تنزيلها في المتصفح. يعيد 'gallery' أو 'download' أو false */
 export async function saveImageToGallery(dataUrl, name = 'sakina.png') {

@@ -10,6 +10,7 @@ import { restart as restartSetup } from './setup.js';
 import { THEMES, openSheet, confirmSheet, toast } from '../ui.js';
 import { getPosition, saveTextFile } from '../native.js';
 import { timeButton, pickTime } from './pickers.js';
+import { UI_FONTS, TEXT_FONTS, UI_SCALES } from '../fonts.js';
 
 export const full = true;
 export const tab = 'more';
@@ -41,6 +42,12 @@ export function render() {
       <h2 class="set-title">${icon('palette')} المظهر والقراءة</h2>
       ${row('sun', 'اتباع وضع الهاتف', 'الواحة الهادئة نهاراً، والسكينة الليلية في الوضع الداكن', sw(s.followSystem, 'set-toggle', 'data-k="followSystem"'))}
       ${s.followSystem ? '' : themes()}
+      <div class="set-sub"><b>${icon('type')} خط التطبيق</b>
+        <div class="chips">${Object.entries(UI_FONTS).map(([k, f]) => `<button class="chip font-chip ${s.uiFont === k ? 'on' : ''}" data-act="set-uifont" data-k="${k}" style="font-family:${f.family}" aria-pressed="${s.uiFont === k}">${f.label}</button>`).join('')}</div></div>
+      <div class="set-sub"><b>${icon('book')} خط الأذكار والأدعية</b>
+        <div class="chips">${Object.entries(TEXT_FONTS).map(([k, f]) => `<button class="chip font-chip ${s.textFont === k ? 'on' : ''}" data-act="set-textfont" data-k="${k}" style="font-family:${f.family}" aria-pressed="${s.textFont === k}">${k === 'ruqaa' ? 'رقعة' : 'سُبْحَانَ اللَّهِ'} <small>${f.label}</small></button>`).join('')}</div></div>
+      <div class="set-row"><span class="set-ic">${icon('type')}</span><div class="set-txt"><b>حجم خط التطبيق</b><small>${num(Math.round(s.uiScale * 100))}٪ للتطبيق كله</small></div>
+        <div class="stepper sm"><button class="icon-btn" data-act="set-scale" data-d="-1" aria-label="تصغير خط التطبيق" ${s.uiScale <= UI_SCALES[0] ? 'disabled' : ''}>${icon('minus')}</button><button class="icon-btn" data-act="set-scale" data-d="1" aria-label="تكبير خط التطبيق" ${s.uiScale >= UI_SCALES[UI_SCALES.length - 1] ? 'disabled' : ''}>${icon('plus')}</button></div></div>
       <div class="set-row"><span class="set-ic">${icon('type')}</span><div class="set-txt"><b>حجم خط الأذكار</b><small>${num(s.fontSize)} بكسل</small></div>
         <div class="stepper sm"><button class="icon-btn" data-act="set-font" data-d="-2" aria-label="تصغير">${icon('minus')}</button><button class="icon-btn" data-act="set-font" data-d="2" aria-label="تكبير">${icon('plus')}</button></div></div>
       <p class="font-preview amiri" style="font-size:${s.fontSize}px">${s.tashkeel ? 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ' : 'سبحان الله وبحمده'}</p>
@@ -205,6 +212,14 @@ export const actions = {
     state.settings[k] = !state.settings[k];
     save();
     if (k === 'followSystem') document.dispatchEvent(new Event('app:theme')); else refresh();
+  },
+  'set-uifont': (el) => { state.settings.uiFont = el.dataset.k; save(); document.dispatchEvent(new Event('app:theme')); },
+  'set-textfont': (el) => { state.settings.textFont = el.dataset.k; save(); document.dispatchEvent(new Event('app:theme')); },
+  'set-scale': (el) => {
+    const i = UI_SCALES.indexOf(state.settings.uiScale);
+    state.settings.uiScale = UI_SCALES[Math.max(0, Math.min(UI_SCALES.length - 1, (i === -1 ? 2 : i) + +el.dataset.d))];
+    save();
+    document.dispatchEvent(new Event('app:theme'));
   },
   'set-snooze': (el) => {
     const m = +el.dataset.m;

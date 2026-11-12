@@ -1,5 +1,6 @@
 // حالة التطبيق محفوظة في localStorage: الإعدادات، تقدّم اليوم، المفضلة، الأذكار الخاصة، المسبحة، السجل
 import { dateKey } from './dates.js';
+import { sanitizeBook } from './zakatlog.js';
 
 const KEY = 'sakina.v1';
 
@@ -27,6 +28,10 @@ export const DEFAULTS = {
     overlay: false,
     // اتباع وضع الهاتف: الواحة الهادئة نهاراً والسكينة الليلية في الوضع الداكن
     followSystem: false,
+    // خط الواجهة وخط النصوص وحجم خط التطبيق كله
+    uiFont: 'plex',
+    textFont: 'amiri',
+    uiScale: 1,
     // مدد تأجيل الفقاعة بالدقائق
     snooze: [5, 15, 30, 60],
     // ساعات الهدوء: لا تظهر فيها الفقاعة ولا التذكيرات المخصّصة (تبقى تنبيهات الصلاة)
@@ -81,7 +86,10 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 export function sanitize(st) {
   const d = DEFAULTS;
   const s = st.settings;
-  s.theme = oneOf(s.theme, ['oasis', 'midnight', 'dawn', 'royal'], d.settings.theme);
+  s.theme = oneOf(s.theme, ['oasis', 'midnight', 'dawn', 'royal', 'beige', 'olive', 'ocean', 'abyss'], d.settings.theme);
+  s.uiFont = oneOf(s.uiFont, ['plex', 'cairo', 'tajawal', 'almarai', 'kufi', 'readex'], 'plex');
+  s.textFont = oneOf(s.textFont, ['amiri', 'scheherazade', 'naskh', 'lateef', 'ruqaa'], 'amiri');
+  s.uiScale = oneOf(+s.uiScale, [0.85, 0.9, 1, 1.1, 1.2, 1.3, 1.4], 1);
   s.fontSize = clampNum(s.fontSize, 18, 44, d.settings.fontSize);
   s.digits = oneOf(s.digits, ['arab', 'latn'], 'arab');
   s.readMode = oneOf(s.readMode, ['focus', 'list'], 'focus');
@@ -114,6 +122,8 @@ export function sanitize(st) {
   })) : [];
   if (st.cardDraft !== undefined && st.cardDraft !== null && !isObj(st.cardDraft)) st.cardDraft = null;
   st.cardDesigns = Array.isArray(st.cardDesigns) ? st.cardDesigns.filter((d) => isObj(d) && typeof d.id === 'string' && isObj(d.spec)).slice(0, 30) : [];
+  // سجل الزكاة والصدقات (الحسابات والمستحقون والتسليم)
+  if (st.zakatBook !== undefined && st.zakatBook !== null) st.zakatBook = sanitizeBook(st.zakatBook);
   if (st.mywird !== undefined && !Array.isArray(st.mywird)) st.mywird = [];
   if (Array.isArray(st.mywird)) st.mywird = st.mywird.filter((w) => isObj(w) && typeof w.id === 'string').map((w) => ({ id: w.id, n: Math.round(clampNum(w.n, 1, 10000, 1)) }));
   for (const k of ['favorites', 'custom', 'reminders']) if (!Array.isArray(st[k])) st[k] = [];

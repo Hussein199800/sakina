@@ -372,3 +372,67 @@ test('سلامة بيانات «لمن تحب»: الأشخاص والدعوات
   assert.equal(st.cardDraft, null);
   assert.equal(st.cardDesigns.length, 1);
 });
+
+test('الخطوط والثيمات وحجم التطبيق: قيم صالحة فقط، والقديم يعود للافتراضي', () => {
+  const st = sanitize(JSON.parse(JSON.stringify({ ...DEFAULTS, settings: { ...DEFAULTS.settings, theme: 'abyss', uiFont: 'comic', textFont: 'ruqaa', uiScale: 5 } })));
+  assert.equal(st.settings.theme, 'abyss');
+  assert.equal(st.settings.uiFont, 'plex');
+  assert.equal(st.settings.textFont, 'ruqaa');
+  assert.equal(st.settings.uiScale, 1);
+  // كل خط اختياري له ملفاته في الحزمة
+  const fonts = readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8');
+  assert.ok(/UI_FONTS, TEXT_FONTS/.test(fonts));
+});
+
+// ---------- سجل الزكاة والصدقات ----------
+import { statusOf, delivered, remaining, totals, allocatedFor, filterPeople, addDelivery, sanitizeBook } from '../src/zakatlog.js';
+
+test('سجل الزكاة: التسليم الجزئي والكامل، وفصل الزكاة عن الصدقة والعملات', () => {
+  const a = { id: 'a', name: 'أسرة أبي محمد', kind: 'fam', type: 'zakat', group: 'الأقارب', amount: 100, currency: '$', deliveries: [], saveId: 's1' };
+  const b = { id: 'b', name: 'يتيم', kind: 'ind', type: 'sadaqa', group: 'عام', amount: 50, currency: '$', deliveries: [] };
+  const c = { id: 'c', name: 'جار', kind: 'ind', type: 'zakat', group: 'عام', amount: 200000, currency: 'ل.س', deliveries: [], saveId: 's1' };
+  assert.equal(statusOf(a), 'none');
+  assert.ok(addDelivery(a, 40));
+  assert.equal(statusOf(a), 'partial');
+  assert.equal(remaining(a), 60);
+  // لا يُسلَّم أكثر من المتبقي
+  assert.ok(addDelivery(a, 1000));
+  assert.equal(delivered(a), 100);
+  assert.equal(statusOf(a), 'done');
+  assert.equal(addDelivery(a, 5), false);
+  const t = totals([a, b, c]);
+  assert.equal(t.length, 3, 'الزكاة بالدولار والصدقة بالدولار والزكاة بالليرة مجاميع منفصلة');
+  assert.deepEqual(t.map((x) => [x.type, x.currency]), [['zakat', '$'], ['zakat', 'ل.س'], ['sadaqa', '$']]);
+  assert.equal(t[0].delivered, 100);
+  assert.equal(t[2].remaining, 50);
+  // المخصّص من حساب محفوظ: الزكاة المرتبطة به فقط
+  assert.equal(allocatedFor('s1', [a, b, c]), 200100);
+  assert.equal(allocatedFor('s2', [a, b, c]), 0);
+  assert.deepEqual(filterPeople([a, b, c], { type: 'sadaqa' }).map((x) => x.id), ['b']);
+  assert.deepEqual(filterPeople([a, b, c], { status: 'done' }).map((x) => x.id), ['a']);
+  assert.deepEqual(filterPeople([a, b, c], { group: 'عام', q: 'جار' }).map((x) => x.id), ['c']);
+});
+
+test('سجل الزكاة: تصحيح البيانات التالفة دون فقد الصالحة', () => {
+  const b = sanitizeBook({ groups: ['الأقارب', '', 5], saves: [{ id: 's1', due: -4 }, 'x'], people: [
+    { id: 'p1', name: 'أحمد', type: 'x', kind: 'y', group: 'غير موجودة', amount: '12.345', deliveries: [{ amount: 5 }, { amount: -1 }], dueDate: 'غد' },
+    { id: 'p2', name: '' }, null] });
+  assert.deepEqual(b.groups, ['عام', 'الأقارب']);
+  assert.equal(b.saves.length, 1);
+  assert.equal(b.saves[0].due, 0);
+  assert.equal(b.people.length, 1);
+  const p = b.people[0];
+  assert.deepEqual([p.type, p.kind, p.group, p.amount, p.dueDate, p.deliveries.length], ['zakat', 'ind', 'عام', 12.35, '', 1]);
+  assert.equal(sanitizeBook('bad'), null);
+});
+
+test('تقرير الزكاة للطباعة: عربي منسّق، والهاتف والملاحظات لا تظهر إلا باختيار المستخدم', async () => {
+  const { reportHtml } = await import('../src/views/zakat.js');
+  const people = [{ id: 'a', name: 'أسرة <b>س</b>', kind: 'fam', type: 'zakat', group: 'عام', amount: 100, currency: '$', phone: '0999123456', note: 'حي الميدان', deliveries: [{ amount: 40 }] }];
+  const plain = reportHtml(people, []);
+  assert.ok(/dir="rtl"/.test(plain) && /سجل الزكاة والصدقات/.test(plain));
+  assert.ok(plain.indexOf('0999123456') === -1 && plain.indexOf('حي الميدان') === -1);
+  assert.ok(plain.indexOf('<b>س</b>') === -1, 'الأسماء تُهرَّب');
+  const full = reportHtml(people, [], { phone: true, notes: true });
+  assert.ok(full.indexOf('0999123456') !== -1 && full.indexOf('حي الميدان') !== -1);
+});
