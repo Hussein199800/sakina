@@ -100,6 +100,8 @@ export function render() {
           <li><b>الظهور فوق التطبيقات:</b> للفقاعة العائمة فقط، وتعمل التذكيرات بدونها.</li>
           <li><b>تثبيت التطبيقات:</b> لتثبيت تحديثات سكينة من داخلها.</li>
           <li><b>الإنترنت:</b> للتحقق من التحديثات وتنزيلها والمساجد القريبة فقط، وكل ما عداها يعمل دون اتصال.</li>
+          <li><b>المساجد القريبة:</b> عند البحث فقط تُرسل إحداثيات موقعك إلى خادم خرائط OpenStreetMap المفتوح لجلب المساجد، وتُحفظ النتائج على جهازك. وزر «اذهب» يفتح خرائط جوجل باختيارك.</li>
+          <li><b>النسخ الاحتياطي:</b> لا تُنسخ بيانات سكينة تلقائياً إلى السحابة ولا تُنقل بين الأجهزة؛ انقلها بنفسك عبر «تصدير نسخة».</li>
         </ul></details>
       <button class="set-row link" data-act="setup-again"><span class="set-ic">${icon('sparkle')}</span><div class="set-txt"><b>إعادة التخصيص الأولي</b><small>خطوات الموقع والمظهر والقراءة والتذكيرات</small></div>${icon('chevron')}</button>
       <button class="set-row link" data-act="home-reset"><span class="set-ic">${icon('grid')}</span><div class="set-txt"><b>استعادة ترتيب الرئيسية</b><small>يعيد البطاقات والاختصارات كما كانت فقط</small></div>${icon('chevron')}</button>
@@ -128,15 +130,19 @@ export function mount(root) {
   const imp = root.querySelector('[data-import]');
   if (imp) imp.addEventListener('change', async () => {
     const f = imp.files && imp.files[0];
+    imp.value = '';
     if (!f) return;
+    // حد أقصى ٥ ميغابايت: النسخ الحقيقية أصغر بكثير، والملف الضخم قد يجمّد التطبيق
+    if (f.size > 5 * 1024 * 1024) { toast('الملف أكبر من أن يكون نسخة احتياطية من سكينة', 'info'); return; }
+    let data;
+    try { data = JSON.parse(await readFile(f)); } catch (e) { toast('تعذّرت قراءة الملف: ليس ملف نسخة احتياطية صالحاً', 'info'); return; }
     try {
-      const data = JSON.parse(await readFile(f));
-      if (!data || typeof data !== 'object' || !data.settings) throw new Error('bad');
+      // التحقق الكامل يحدث قبل الاستبدال؛ عند الفشل تبقى بياناتك الحالية كما هي
       replaceAll(data);
-      rescheduleNotifications();
-      toast('تم استيراد بياناتك');
-      document.dispatchEvent(new Event('app:theme'));
-    } catch (e) { toast('الملف غير صالح', 'info'); }
+    } catch (e) { toast('الملف ليس نسخة احتياطية من سكينة، ولم يتغيّر شيء في بياناتك', 'info'); return; }
+    rescheduleNotifications();
+    toast('تم استيراد بياناتك');
+    document.dispatchEvent(new Event('app:theme'));
   });
 }
 

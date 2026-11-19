@@ -51,6 +51,15 @@ public final class BubbleView {
         MAIN.post(() -> showOnMain(app, title, body, route));
     }
 
+    /** إخفاء الفقاعة الظاهرة إن وُجدت */
+    public static void hide(Context ctx) {
+        final Context app = ctx.getApplicationContext();
+        MAIN.post(() -> {
+            WindowManager wm = (WindowManager) app.getSystemService(Context.WINDOW_SERVICE);
+            if (wm != null) dismiss(wm);
+        });
+    }
+
     private static int dp(Context c, float v) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, c.getResources().getDisplayMetrics());
     }

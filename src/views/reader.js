@@ -128,7 +128,7 @@ export function render(param) {
     return `${header()}<div class="empty reader-empty">${icon(META[catId] ? META[catId].icon : 'book')}<p>${META[catId] ? META[catId].empty : ''}</p>
       ${catId === 'custom' ? `<button class="btn btn-primary" data-act="custom-add">${icon('plus')} إضافة ذكر جديد</button>` : catId === 'mywird' ? `<button class="btn btn-primary" data-act="go" data-to="#/mywird">${icon('plus')} ابنِ وردك</button>` : ''}</div>`;
   }
-  if (stay) { idx = Math.min(idx, items.length - 1); stay = false; } else if (start !== undefined && start !== '') { idx = Math.min(items.length - 1, Math.max(0, +start)); review = true; } else {
+  if (stay) { idx = Math.min(idx, items.length - 1); stay = false; } else if (/^\d{1,4}$/.test(start || '')) { idx = Math.min(items.length - 1, Math.max(0, +start)); review = true; } else {
     const first = items.findIndex((it) => doneOf(it.id) < it.n);
     idx = first === -1 ? 0 : first;
   }

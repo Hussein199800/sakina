@@ -69,22 +69,24 @@ function prayerCard() {
   const np = nextPrayer();
   const t = np.times;
   const nextKey = np.tomorrow ? null : np.key;
-  const nextName = PRAYERS.find((p) => p.key === np.key).name;
+  const nextP = PRAYERS.find((p) => p.key === np.key);
+  const missing = PRAYERS.some((p) => !t[p.key]);
   return `<section class="card prayer-card">
     <div class="pc-head">
       <h2>مواقيت الصلاة</h2>
       <button class="chip chip-outline" data-act="go" data-to="#/settings">${icon('pin')}<span>${esc(loc.name)}</span></button>
     </div>
     <div class="pc-grid">${PRAYERS.map((p) => `
-      <div class="pc-cell ${p.key === nextKey || (np.tomorrow && p.key === 'fajr') ? 'next' : ''} ${p.key === 'sunrise' ? 'sunrise' : ''}">
+      <div class="pc-cell ${p.key === nextKey || (np.tomorrow && p.key === np.key) ? 'next' : ''} ${p.key === 'sunrise' ? 'sunrise' : ''}">
         ${icon(p.icon)}<span class="pc-name">${p.name}</span><b class="pc-time">${fmtTime(t[p.key])}</b>
       </div>`).join('')}
     </div>
-    <div class="countdown">
+    ${nextP ? `<div class="countdown">
       <span class="cd-ic">${icon('bell')}</span>
-      <span>باقي على أذان ${nextName}</span>
+      <span>باقي على أذان ${nextP.name}</span>
       <b data-countdown="${np.at.getTime()}">${fmtCountdown(np.at - Date.now())}</b>
-    </div>
+    </div>` : ''}
+    ${missing ? `<p class="note">${icon('info')} بعض الأوقات غير متاحة بهذه الطريقة لهذا الموقع والتاريخ.</p>` : ''}
     <p class="pc-method">${METHODS[methodKey()].name}</p>
   </section>`;
 }

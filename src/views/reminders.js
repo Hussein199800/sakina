@@ -88,8 +88,19 @@ async function permitted() {
   return false;
 }
 
+/** موعد التذكير الأحادي: تاريخ صالح ووقت لم يمضِ */
+export function onceValid(r, now = new Date()) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(r.date || '');
+  const t = /^(\d{2}):(\d{2})$/.exec(r.time || '');
+  if (!m || !t) return false;
+  const at = new Date(+m[1], +m[2] - 1, +m[3], +t[1], +t[2]);
+  if (at.getMonth() !== +m[2] - 1 || at.getDate() !== +m[3]) return false;
+  return at > now;
+}
+
 function editor(existing, kind) {
-  const r = existing ? { ...existing } : { id: `r-${Date.now().toString(36)}`, kind, on: true, time: KINDS[kind].time, mode: KINDS[kind].mode, repeat: 'daily', days: [5], date: dateKey(new Date(Date.now() + 86400000)), title: '', body: '' };
+  // نسخة مستقلة: لا تتغيّر أيام التذكير الأصلي قبل الحفظ
+  const r = existing ? { ...existing, days: Array.isArray(existing.days) ? existing.days.slice() : [] } : { id: `r-${Date.now().toString(36)}`, kind, on: true, time: KINDS[kind].time, mode: KINDS[kind].mode, repeat: 'daily', days: [5], date: dateKey(new Date(Date.now() + 86400000)), title: '', body: '' };
   const k = KINDS[r.kind];
   const custom = r.kind === 'custom';
   const modeSeg = k.modes ? `<div class="field"><span>متى نذكّرك؟</span><div class="seg">
@@ -139,6 +150,7 @@ function editor(existing, kind) {
           r.body = body.querySelector('#r-body').value.trim();
           if (!r.title) { toast('اكتب عنوان التذكير', 'info'); return; }
           if (r.repeat === 'weekly' && !r.days.length) { toast('اختر يوماً واحداً على الأقل', 'info'); return; }
+          if (r.repeat === 'once' && !onceValid(r)) { toast('اختر تاريخاً ووقتاً في المستقبل', 'info'); return; }
         }
         if (r.on && !(await permitted())) return;
         const i = state.reminders.findIndex((x) => x.id === r.id);

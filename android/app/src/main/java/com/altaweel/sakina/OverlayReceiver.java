@@ -10,6 +10,8 @@ public class OverlayReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent == null ? null : intent.getAction();
         if (OverlayScheduler.ACTION_SHOW.equals(action)) {
+            // الفقاعة أُوقفت أو حُذفت البيانات بعد جدولة هذا الموعد
+            if (!OverlayScheduler.enabled(context)) return;
             if (OverlayScheduler.inQuiet(context, System.currentTimeMillis())) return;
             BubbleView.show(context,
                 intent.getStringExtra(OverlayScheduler.EXTRA_TITLE),

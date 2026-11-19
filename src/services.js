@@ -34,14 +34,17 @@ const FIVE = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 export function nextPrayer(now = new Date()) {
   const g = localToday(now);
   const t = timesFor(g);
-  for (const k of FIVE) if (t[k] > now) return { key: k, at: t[k], times: t, tomorrow: false };
+  for (const k of FIVE) if (t[k] && t[k] > now) return { key: k, at: t[k], times: t, tomorrow: false };
   const t2 = timesFor(addDays(g, 1));
-  return { key: 'fajr', at: t2.fajr, times: t, tomorrow: true };
+  // أول صلاة متاحة غداً؛ وإن لم يتح شيء (خطوط العرض القصوى) فلا صلاة قادمة
+  const k2 = FIVE.find((k) => t2[k]);
+  return k2 ? { key: k2, at: t2[k2], times: t, tomorrow: true } : { key: null, at: null, times: t, tomorrow: true };
 }
 
 /** فترة اليوم لتلوين السماء واقتراح الورد */
 export function dayPeriod(now = new Date()) {
   const t = timesFor(localToday(now));
+  if (!t.fajr || !t.sunrise || !t.asr || !t.maghrib || !t.isha) return 'day'; // أوقات غير متاحة: لون محايد
   if (now < t.fajr) return 'night';
   if (now < t.sunrise) return 'fajr';
   if (now < t.asr) return 'day';
@@ -62,6 +65,7 @@ export const GREETINGS = {
 export function suggestedWird(now = new Date()) {
   const t = timesFor(localToday(now));
   const h = today();
+  if (!t.fajr || !t.dhuhr || !t.asr || !t.isha) return 'morning';
   if (now >= t.fajr && now < t.dhuhr) return 'morning';
   if (now >= t.dhuhr && now < t.asr) return h.m ? 'prayer' : 'morning';
   if (now >= t.asr && now < t.isha) return 'evening';
@@ -194,7 +198,7 @@ export function buildNotifications(now = new Date()) {
     for (let day = 0; day < 6; day++) {
       const t = timesFor(g);
       FIVE.forEach((key, i) => {
-        if (t[key] > now) {
+        if (t[key] && t[key] > now) { // لا جدولة لوقت غير متاح
           const name = PRAYERS.find((p) => p.key === key).name;
           list.push({ id: 100 + day * 10 + i, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home' });
         }
@@ -240,7 +244,7 @@ export function buildOverlays(now = new Date()) {
 async function doReschedule() {
   if (overlaySupported) {
     const q = state.settings.quiet;
-    await scheduleOverlays(buildOverlays(), { snooze: state.settings.snooze, quiet: { on: q.on, from: toMin(q.from), to: toMin(q.to) }, digits: state.settings.digits });
+    await scheduleOverlays(buildOverlays(), { snooze: state.settings.snooze, quiet: { on: q.on, from: toMin(q.from), to: toMin(q.to) }, digits: state.settings.digits, enabled: !!state.settings.overlay });
   }
   if (!notificationsSupported) return;
   try { await scheduleAll(buildNotifications()); } catch (e) { /* تجاهل أخطاء الجدولة */ }

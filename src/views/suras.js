@@ -81,7 +81,7 @@ function list() {
 }
 
 export function render(param) {
-  const s = +param;
+  const s = /^\d{1,3}$/.test(param || '') ? +param : 0;
   if (s >= 1 && s <= 114) open.add(s);
   return `${fullHead('مداخل السور', 'تعريف موجز بكل سورة من سور القرآن')}
     <div class="si-page">

@@ -74,7 +74,10 @@ export function toast(msg, ic = 'check') {
     el.setAttribute('role', 'status');
     document.body.appendChild(el);
   }
-  el.innerHTML = `${icon(ic)}<span>${msg}</span>`;
+  el.innerHTML = icon(ic);
+  const span = document.createElement('span');
+  span.textContent = msg; // نص عادي دائماً حتى لو حمل اسماً أدخله المستخدم
+  el.appendChild(span);
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2200);

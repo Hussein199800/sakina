@@ -59,8 +59,12 @@ let current = null;
 let currentKey = '';
 
 function parse() {
-  const [name, param] = location.hash.replace(/^#\/?/, '').split('/');
-  return { name: ROUTES[name] ? name : 'home', param: param ? decodeURIComponent(param) : '' };
+  const [name, raw] = location.hash.replace(/^#\/?/, '').split('/');
+  let param = '';
+  // رابط تالف (مثل % منفردة) لا يعطّل التطبيق: يُعامل كأنه بلا معامل
+  try { param = raw ? decodeURIComponent(raw) : ''; } catch (e) { param = ''; }
+  if (param.length > 64 || /[<>"'`]/.test(param)) param = '';
+  return { name: ROUTES[name] ? name : 'home', param };
 }
 
 export function render(keepScroll = false) {

@@ -22,15 +22,6 @@ const tile = (to, ic, tone, title, sub) => `<button class="more-tile tone-${tone
 const row = (act, ic, title, sub, extra = '') => `<button class="set-row link" ${act}>
   <span class="set-ic">${icon(ic)}</span><div class="set-txt"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>${extra || icon('chevron')}</button>`;
 
-export function devCard() {
-  return `<div class="dev-card">
-    <small>تطوير وتصميم</small>
-    <b class="dev-name">حسين محمد علي الطويل</b>
-    <p class="dev-dua amiri">اللَّهُمَّ اغْفِرْ لِعَبْدِكَ حسين محمد علي الطويل وَلِوَالِدَيْهِ، وَارْحَمْهُمَا كَمَا رَبَّيَاهُ صَغِيرًا، وَاجْعَلْ هَٰذَا الْعَمَلَ صَدَقَةً جَارِيَةً فِي مِيزَانِ حَسَنَاتِهِمْ، وَاجْمَعْهُمْ فِي الْفِرْدَوْسِ الْأَعْلَى مِنَ الْجَنَّةِ.</p>
-    <p class="muted small">إن نفعك هذا التطبيق، فلا تنسَ مطوّره ووالديه من دعوة صادقة بظهر الغيب؛ فإن الملَك يقول: «ولك بمثل».</p>
-  </div>`;
-}
-
 function updateBanner() {
   if (!updateAvailable()) return '';
   const l = state.app.latest;
@@ -95,8 +86,7 @@ export const about = {
         <li>المساجد القريبة: بيانات OpenStreetMap المفتوحة (ODbL).</li>
         <li>الخطوط: IBM Plex Sans Arabic وAmiri، بترخيص SIL Open Font License.</li>
       </ul>
-    </section>
-    <section class="card about">${devCard()}</section>`,
+    </section>`,
 };
 
 export function whatsNewHtml(onlyLatest = false) {

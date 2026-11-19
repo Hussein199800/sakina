@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- أضيق نطاق لازم: ملفات المشاركة المؤقتة وملف التحديث فقط (لا تخزين خارجي ولا الكاش كاملاً) -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="my_images" path="." />
-    <cache-path name="my_cache_images" path="." />
+    <cache-path name="share" path="share/" />
+    <cache-path name="updates" path="updates/" />
 </paths>

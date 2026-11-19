@@ -65,7 +65,6 @@ const OCCASION_DAYS = [
   [10, 2, 'صيام ست من شوال', 'من صام رمضان ثم أتبعه ستاً من شوال كان كصيام الدهر. رواه مسلم.'],
 ];
 
-const DAY = 86400000;
 const ymd = (d) => ({ y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate(), wd: d.getDay() });
 const atTime = (date, time) => {
   const [h, m] = String(time || '20:00').split(':').map(Number);
@@ -98,7 +97,8 @@ export function occurrences(r, now, days = 21, hijriAdjust = 0) {
   const out = [];
   const eve = r.mode === 'eve';
   const push = (target, title, body) => {
-    const at = atTime(eve ? new Date(target.getTime() - DAY) : target, r.time);
+    // يوم تقويمي سابق (لا ٢٤ ساعة): طرح الساعات يخطئ يوم تغيّر التوقيت الصيفي
+    const at = atTime(eve ? new Date(target.getFullYear(), target.getMonth(), target.getDate() - 1) : target, r.time);
     if (at > now) out.push({ at, title, body });
   };
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
