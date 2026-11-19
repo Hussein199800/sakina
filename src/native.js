@@ -31,6 +31,14 @@ export async function showOverlayNow(title, body, route) {
   try { await Overlay.showNow({ title, body, route }); return true; } catch (e) { return false; }
 }
 
+// ---------- ويدجت الشاشة الرئيسية (أندرويد) ----------
+const Widget = registerPlugin('SakinaWidget');
+/** يرسل مواقيت الويدجت؛ لا يفشل التطبيق إن لم تتوفر الإضافة */
+export async function updateWidget(data) {
+  if (!isAndroid) return false;
+  try { await Widget.update(data); return true; } catch (e) { return false; }
+}
+
 // ---------- التحديث من داخل التطبيق (أندرويد) ----------
 const Updater = registerPlugin('SakinaUpdater');
 export const inAppUpdateSupported = isAndroid;

@@ -782,3 +782,16 @@ test('BLD-02: لا Object.fromEntries ولا flatMap في شيفرة التطب�
     assert.ok(!/Object\.fromEntries|\.flatMap\(|\.flat\(\)/.test(s), f);
   }
 });
+
+test('FEAT-04: بيانات الويدجت مرتبة لشهر، وتبدأ بآخر صلاة مضت، وتحمل الورد المناسب', async () => {
+  const { widgetData } = await import('../src/services.js');
+  const now = new Date(2026, 9, 31, 13, 0);
+  const d = widgetData(now);
+  assert.ok(d.items.length >= 145 && d.items.length <= 160, `${d.items.length}`);
+  for (let i = 1; i < d.items.length; i++) assert.ok(d.items[i].at > d.items[i - 1].at);
+  assert.ok(d.items[0].at <= now.getTime() && d.items[1].at > now.getTime(), 'الأول آخر صلاة مضت');
+  const byK = Object.fromEntries(d.items.map((x) => [x.k, x.wird]));
+  assert.deepEqual(byK, { fajr: 'morning', dhuhr: 'morning', asr: 'evening', maghrib: 'evening', isha: 'sleep' });
+  assert.ok(typeof d.city === 'string' && typeof d.tz === 'string');
+  assert.ok(d.items.every((x) => /^#?/.test(x.wird) && /^[a-z]+$/.test(x.wird)), 'مسار الورد آمن للرابط العميق');
+});

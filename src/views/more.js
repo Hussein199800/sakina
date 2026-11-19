@@ -84,8 +84,10 @@ export const about = {
         <li>الأذكار والأدعية: مطابقة لكتاب «حصن المسلم» للشيخ سعيد بن علي القحطاني رحمه الله.</li>
         <li>مقاصد السور والمكي والمدني: «المختصر في تفسير القرآن الكريم»، مركز تفسير للدراسات القرآنية.</li>
         <li>المساجد القريبة: بيانات OpenStreetMap المفتوحة (ODbL).</li>
-        <li>الخطوط: IBM Plex Sans Arabic وAmiri، بترخيص SIL Open Font License.</li>
+        <li>الخطوط: IBM Plex Sans Arabic وAmiri وAmiri Quran وCairo وTajawal وAlmarai وNoto Kufi Arabic وReadex Pro وScheherazade New وNoto Naskh Arabic وLateef وAref Ruqaa، كلها بترخيص SIL Open Font License ${num('1.1')}، عبر حزم Fontsource.</li>
+        <li>البرمجيات: Capacitor (MIT) وesbuild (MIT).</li>
       </ul>
+      <p class="muted small">تطبيق أندرويد يحمل كل محتواه داخله ويعمل بلا إنترنت؛ ونسخة الويب تُحفظ في المتصفح بعد أول زيارة. يحتاج الإنترنت فقط: البحث عن المساجد، والتحقق من التحديثات.</p>
     </section>`,
 };
 

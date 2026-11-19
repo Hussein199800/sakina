@@ -4,7 +4,7 @@ import { CITIES, DEFAULT_CITY } from './data/cities.js';
 import { CATEGORY_BY_ID, ITEM_BY_ID } from './data/adhkar.js';
 import { computeTimes, PRAYERS } from './prayer.js';
 import { ymdInTz, toHijri, addDays, dateKey } from './dates.js';
-import { scheduleAll, notificationsSupported, scheduleOverlays, overlaySupported } from './native.js';
+import { scheduleAll, notificationsSupported, scheduleOverlays, overlaySupported, updateWidget } from './native.js';
 import { occurrences, routeOf } from './reminders.js';
 import { num, pagesLabel } from './text.js';
 import { todayRange } from './khatma.js';
@@ -261,7 +261,32 @@ export function buildOverlays(now = new Date()) {
   return out;
 }
 
+// الورد المناسب بعد كل صلاة: الصباح حتى العصر، والمساء حتى العشاء، ثم النوم
+const WIRD_AFTER = { fajr: ['morning', 'أذكار الصباح'], dhuhr: ['morning', 'أذكار الصباح'], asr: ['evening', 'أذكار المساء'], maghrib: ['evening', 'أذكار المساء'], isha: ['sleep', 'أذكار النوم'] };
+
+/** بيانات الويدجت: مواقيت الصلوات الخمس لنحو شهر (من آخر صلاة مضت) بلا أي وقت غير متاح */
+export function widgetData(now = new Date(), days = WINDOW_DAYS) {
+  const loc = location();
+  const items = [];
+  let g = addDays(localToday(now), -1);
+  for (let d = 0; d <= days; d++) {
+    const t = timesFor(g);
+    for (const k of FIVE) {
+      if (!t[k]) continue;
+      const [wird, wirdLabel] = WIRD_AFTER[k];
+      items.push({ k, name: PRAYERS.find((p) => p.key === k).name, at: t[k].getTime(), wird, wirdLabel });
+    }
+    g = addDays(g, 1);
+  }
+  items.sort((a, b) => a.at - b.at);
+  // آخر صلاة مضت تكفي لتحديد الورد الحالي؛ ما قبلها لا حاجة له
+  const firstFuture = items.findIndex((x) => x.at > now.getTime());
+  const from = firstFuture > 0 ? firstFuture - 1 : 0;
+  return { city: loc.name || '', tz: loc.tz || '', arab: state.settings.digits !== 'latn', items: items.slice(from) };
+}
+
 async function doReschedule() {
+  updateWidget(widgetData()).catch(() => {});
   if (overlaySupported) {
     const q = state.settings.quiet;
     await scheduleOverlays(buildOverlays(), { snooze: state.settings.snooze, quiet: { on: q.on, from: toMin(q.from), to: toMin(q.to) }, digits: state.settings.digits, enabled: !!state.settings.overlay });
