@@ -217,6 +217,15 @@ export function sanitize(st) {
 
 export const state = load();
 
+/** حذف ذكر خاص مع كل مراجعه: المفضلة، و«وردي الخاص»، وتقدّم اليوم */
+export function removeCustom(id) {
+  state.custom = state.custom.filter((c) => c.id !== id);
+  state.favorites = state.favorites.filter((x) => x !== id);
+  if (Array.isArray(state.mywird)) state.mywird = state.mywird.filter((w) => w.id !== id);
+  delete state.progress.counts[id];
+  save();
+}
+
 // ترحيل بيانات الإصدار ١٫٠: تذكير الجمعة صار ضمن التذكيرات المخصّصة
 if (state.settings.notif.friday) {
   delete state.settings.notif.friday;

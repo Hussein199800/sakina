@@ -85,21 +85,49 @@ export function toast(msg, ic = 'check') {
 
 // ---------- لوح سفلي ----------
 const sheets = [];
+let labelSeq = 0;
+/** مفاتيح التبديل بلا اسم مقروء: تُربط بعنوان صفّها عبر aria-labelledby */
+export function labelSwitches(root) {
+  if (!root || !root.querySelectorAll) return;
+  root.querySelectorAll('[role="switch"]').forEach((sw) => {
+    if (sw.hasAttribute('aria-label') || sw.hasAttribute('aria-labelledby')) return;
+    const row = sw.closest('.set-row, .cd-row, .quiet-row, .field, label');
+    const t = row && row.querySelector('b, span:not(.set-ic)');
+    if (!t || !t.textContent.trim()) return;
+    if (!t.id) { labelSeq += 1; t.id = `lbl-${labelSeq}`; }
+    sw.setAttribute('aria-labelledby', t.id);
+  });
+}
+
+const appRoot = () => document.getElementById('app');
+function setInert(on) {
+  const r = appRoot();
+  if (!r) return;
+  if (on) { r.setAttribute('inert', ''); r.setAttribute('aria-hidden', 'true'); } else { r.removeAttribute('inert'); r.removeAttribute('aria-hidden'); }
+}
+
 export function openSheet(html, { onMount, onClose, cls = '' } = {}) {
+  const opener = document.activeElement;
   const wrap = document.createElement('div');
   wrap.className = 'sheet-wrap';
   wrap.innerHTML = `<div class="sheet-backdrop" data-close></div>
-    <div class="sheet ${cls}" role="dialog" aria-modal="true">
+    <div class="sheet ${cls}" role="dialog" aria-modal="true" tabindex="-1">
       <div class="sheet-grip"></div>
       <button class="sheet-x icon-btn" data-close aria-label="إغلاق">${icon('x')}</button>
       <div class="sheet-body">${html}</div>
     </div>`;
   document.body.appendChild(wrap);
   requestAnimationFrame(() => wrap.classList.add('open'));
-  const entry = { wrap, onClose };
+  const entry = { wrap, onClose, opener };
   sheets.push(entry);
+  setInert(true);
   wrap.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeSheet(); });
   if (onMount) onMount(wrap.querySelector('.sheet-body'), closeSheet);
+  const dlg = wrap.querySelector('.sheet');
+  const title = wrap.querySelector('.sheet-title, h2, h3');
+  if (title) { if (!title.id) { labelSeq += 1; title.id = `lbl-${labelSeq}`; } dlg.setAttribute('aria-labelledby', title.id); } else dlg.setAttribute('aria-label', 'نافذة');
+  labelSwitches(wrap);
+  try { dlg.focus({ preventScroll: true }); } catch (e) { /* تجاهل */ }
   return closeSheet;
 }
 
@@ -108,8 +136,17 @@ export function closeSheet() {
   if (!entry) return false;
   entry.wrap.classList.remove('open');
   setTimeout(() => entry.wrap.remove(), 280);
+  if (!sheets.length) setInert(false);
   if (entry.onClose) entry.onClose();
+  // إعادة التركيز إلى عنصر الفتح إن بقي في الصفحة
+  const back = sheets.length ? sheets[sheets.length - 1].wrap.querySelector('.sheet') : entry.opener;
+  if (back && back.isConnected && typeof back.focus === 'function') { try { back.focus({ preventScroll: true }); } catch (e) { /* تجاهل */ } }
   return true;
+}
+
+// Escape يغلق النافذة العليا (ويبقى زر الرجوع في أندرويد كما هو)
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheets.length) { e.preventDefault(); closeSheet(); } });
 }
 export const hasSheet = () => sheets.length > 0;
 /** إغلاق كل الألواح المفتوحة (عند الانتقال إلى صفحة أخرى) */

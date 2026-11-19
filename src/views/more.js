@@ -177,6 +177,7 @@ export const actions = {
   'app-share': async () => {
     const r = await shareText(SHARE_TEXT);
     if (r === 'copied') toast('تم نسخ نص المشاركة');
+    if (r === 'failed') toast('تعذّرت المشاركة، حاول مرة أخرى', 'info');
   },
 };
 

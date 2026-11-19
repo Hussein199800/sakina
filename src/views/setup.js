@@ -115,13 +115,14 @@ async function finish() {
   const s = state.settings;
   if (khatmaPlan && !state.khatma) startKhatma({ perDay: khatmaPlan, time: '20:00', remind: true, fromPage: 1 });
   const wantsNotif = s.notif.morning.on || s.notif.evening.on || s.notif.sleep.on || s.notif.prayers || (khatmaPlan && notificationsSupported);
-  if (wantsNotif && notificationsSupported) await ensureNotifyPermission();
+  const denied = wantsNotif && notificationsSupported && !(await ensureNotifyPermission());
   state.app.welcomed = true;
   save();
   await rescheduleNotifications();
   step = 0;
   khatmaPlan = 0;
   go('#/home');
+  if (denied) toast('لن تصل التذكيرات حتى تسمح بالإشعارات من إعدادات الهاتف', 'info');
 }
 
 export const actions = {

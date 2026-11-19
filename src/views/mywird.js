@@ -41,7 +41,7 @@ export function render() {
     </div>`;
 }
 
-const INDEX = () => CATEGORIES.flatMap((c) => c.items.map((it) => ({ id: it.id, title: c.title, t: it.t, key: normalize(`${c.title} ${it.h || ''} ${it.t}`) })))
+const INDEX = () => [].concat(...CATEGORIES.map((c) => c.items.map((it) => ({ id: it.id, title: c.title, t: it.t, key: normalize(`${c.title} ${it.h || ''} ${it.t}`) }))))
   .concat(state.custom.map((c) => ({ id: c.id, title: 'أذكاري الخاصة', t: c.t, key: normalize(c.t) })));
 
 export const actions = {

@@ -162,6 +162,9 @@ const parseTime = (s) => { const [h, m] = s.split(':').map(Number); return { hou
 
 // الجدولة متسلسلة: نداءان متزامنان (مثلاً عند العودة للتطبيق مع تغيير إعداد) لا يتداخلان
 let scheduling = Promise.resolve();
+/** آخر حالة جدولة فعلية (لا رغبة المستخدم): { ok, count, error? } */
+export let scheduleStatus = null;
+
 export function rescheduleNotifications() {
   scheduling = scheduling.then(doReschedule, doReschedule);
   return scheduling;
@@ -169,6 +172,9 @@ export function rescheduleNotifications() {
 
 // حدّ أعلى لعدد الإشعارات المجدولة (أندرويد يرفض أكثر من ٥٠٠ منبّه للتطبيق)
 export const MAX_SCHEDULED = 300;
+/** نافذة الجدولة بالأيام (بديل المحرك الأصلي المؤجّل): تكفي شهراً دون فتح التطبيق */
+export const WINDOW_DAYS = 30;
+const daysUntil = (date, now) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || ''); if (!m) return 0; return Math.ceil((new Date(+m[1], +m[2] - 1, +m[3]) - now) / 86400000); };
 
 const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 /** هل الموعد داخل ساعات الهدوء؟ (تمتد عبر منتصف الليل إذا كانت البداية بعد النهاية) */
@@ -192,26 +198,40 @@ export function buildNotifications(now = new Date()) {
     const r = todayRange(k);
     list.push({ id: 5, title: 'وردك من القرآن', body: `${pagesLabel(k.perDay)} اليوم، ابدأ من الصفحة ${num(r.from)}. «اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعاً لأصحابه»`, daily: parseTime(k.time), route: `#/mushaf/${Math.min(604, k.page)}` });
   }
-  // الصلوات أولاً حتى لا يُسقطها الحدّ الأعلى
+  const timed = [];
+  // نافذة الجدولة: شهر تقريباً، وتُجدَّد عند كل فتح للتطبيق
   if (n.prayers) {
     let g = localToday(now);
-    for (let day = 0; day < 6; day++) {
+    for (let day = 0; day < WINDOW_DAYS; day++) {
       const t = timesFor(g);
       FIVE.forEach((key, i) => {
         if (t[key] && t[key] > now) { // لا جدولة لوقت غير متاح
           const name = PRAYERS.find((p) => p.key === key).name;
-          list.push({ id: 100 + day * 10 + i, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home' });
+          timed.push({ id: 100 + day * 10 + i, prayer: true, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home' });
         }
       });
       g = addDays(g, 1);
     }
   }
-  // التذكيرات المخصّصة: مواعيد محددة لثلاثة أسابيع، وتُجدَّد عند كل فتح للتطبيق
-  let rid = 1000;
+  // التذكيرات المخصّصة: الأحادي يُجدول مهما بعُد تاريخه (حتى سنة)، والبقية ضمن النافذة
   for (const r of state.reminders) {
-    for (const o of occurrences(r, now, 21, state.settings.hijriAdjust).filter((x) => !inQuiet(x.at)).slice(0, 25)) list.push({ id: rid++, title: o.title, body: o.body, at: o.at, route: routeOf(r) });
+    const days = r.repeat === 'once' ? Math.min(400, Math.max(WINDOW_DAYS, daysUntil(r.date, now) + 1)) : WINDOW_DAYS;
+    for (const o of occurrences(r, now, days, state.settings.hijriAdjust).filter((x) => !inQuiet(x.at))) timed.push({ title: o.title, body: o.body, at: o.at, route: routeOf(r) });
   }
-  return list.slice(0, MAX_SCHEDULED);
+  // الأقرب زمناً أولاً، والصلاة تتقدّم عند التساوي؛ وصلوات الأسبوع الأول محجوزة فلا يُسقطها الحدّ
+  timed.sort((a, b) => a.at - b.at || (b.prayer ? 1 : 0) - (a.prayer ? 1 : 0));
+  const room = MAX_SCHEDULED - list.length;
+  const weekEnd = now.getTime() + 7 * 86400000;
+  const reserved = timed.filter((x) => x.prayer && x.at.getTime() < weekEnd);
+  const picked = new Set(reserved.slice(0, room));
+  for (const x of timed) { if (picked.size >= room) break; picked.add(x); }
+  let rid = 1000;
+  for (const x of timed) {
+    if (!picked.has(x)) continue;
+    const { prayer, ...item } = x;
+    list.push(prayer ? item : { ...item, id: rid++ });
+  }
+  return list;
 }
 
 /**
@@ -246,6 +266,7 @@ async function doReschedule() {
     const q = state.settings.quiet;
     await scheduleOverlays(buildOverlays(), { snooze: state.settings.snooze, quiet: { on: q.on, from: toMin(q.from), to: toMin(q.to) }, digits: state.settings.digits, enabled: !!state.settings.overlay });
   }
-  if (!notificationsSupported) return;
-  try { await scheduleAll(buildNotifications()); } catch (e) { /* تجاهل أخطاء الجدولة */ }
+  if (!notificationsSupported) { scheduleStatus = { ok: true, count: 0 }; return scheduleStatus; }
+  try { scheduleStatus = await scheduleAll(buildNotifications()); } catch (e) { scheduleStatus = { ok: false, count: 0, error: 'schedule-failed' }; }
+  return scheduleStatus;
 }

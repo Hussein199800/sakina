@@ -672,3 +672,113 @@ test('LOG-08: الأوقات غير المتاحة في خطوط العرض ال
   const t2 = computeTimes({ y: 2026, m: 6, d: 21 }, { lat: 35.93, lng: 36.63 }, { method: 'mwl' });
   for (const p of PRAYERS) assert.ok(t2[p.key] instanceof Date);
 });
+
+test('LOG-09: نافذة شهر للصلوات، والحد ٣٠٠ بترتيب زمني، والأحادي البعيد لا يضيع', () => {
+  const now = new Date(2026, 9, 31, 1, 0);
+  state.settings.notif.prayers = true;
+  // صلوات وحدها: شهر كامل تقريباً
+  let list = buildNotifications(now);
+  const prayers = list.filter((n) => n.title.indexOf('حان وقت صلاة') === 0);
+  assert.ok(prayers.length >= 145, `صلوات ${prayers.length}`);
+  assert.ok(prayers[prayers.length - 1].at - now > 28 * 86400000, 'تمتد قرابة شهر');
+  // تذكيرات كثيرة جداً: لا تجاوز للحد، وصلوات الأسبوع الأول محفوظة، والمختار هو الأقرب زمناً
+  state.reminders = Array.from({ length: 20 }, (_, i) => ({ id: `r${i}`, kind: 'qiyam', on: true, time: '03:30' }));
+  list = buildNotifications(now);
+  assert.equal(list.length, MAX_SCHEDULED);
+  assert.ok(list.filter((n) => n.title.indexOf('حان وقت صلاة') === 0 && n.at - now < 7 * 86400000).length >= 34);
+  const timed = list.filter((n) => n.at);
+  const latest = Math.max(...timed.map((n) => n.at.getTime()));
+  assert.ok(latest - now < 20 * 86400000, 'المواعيد البعيدة تسقط قبل القريبة');
+  assert.equal(new Set(list.map((n) => n.id)).size, list.length);
+  // موعد أحادي بعد شهرين
+  state.settings.notif.prayers = false;
+  state.reminders = [{ id: 'once', kind: 'custom', on: true, time: '09:00', repeat: 'once', date: '2026-12-31', title: 'موعد', body: '', mode: 'day', days: [] }];
+  list = buildNotifications(now);
+  assert.equal(list.length, 1);
+  assert.equal(list[0].at.getMonth(), 11);
+  state.reminders = [];
+});
+
+test('LOG-11: سعر كل معدن مملوك مطلوب، والعملة تتطابق مع الحساب، ولا يقل المبلغ عن المسلَّم', async () => {
+  const { computeZakat } = await import('../src/zakat.js');
+  const { allocatedFor, personError, sanitizeBook } = await import('../src/zakatlog.js');
+  // نصاب الفضة وذهب مملوك بلا سعر
+  let r = computeZakat({ basis: 'silver', silverPrice: 1, gold: { 24: 100 }, goldPrice: 0, cash: 10000 });
+  assert.equal(r.missingPrice, true);
+  assert.deepEqual(r.missing, ['gold']);
+  assert.equal(r.reached, false);
+  // والعكس: نصاب الذهب وفضة مملوكة بلا سعر
+  r = computeZakat({ basis: 'gold', goldPrice: 100, silver: 500, silverPrice: 0, cash: 100000 });
+  assert.deepEqual(r.missing, ['silver']);
+  // مكتمل
+  r = computeZakat({ basis: 'gold', goldPrice: 100, silver: 500, silverPrice: 1, cash: 100000 });
+  assert.equal(r.missingPrice, false);
+  assert.equal(r.reached, true);
+  // العملات لا تُجمع في المخصص لحساب
+  const saves = [{ id: 's1', currency: '$', due: 100 }];
+  const people = [
+    { id: 'a', type: 'zakat', saveId: 's1', currency: '$', amount: 40, deliveries: [] },
+    { id: 'b', type: 'zakat', saveId: 's1', currency: '€', amount: 30, deliveries: [] },
+  ];
+  assert.equal(allocatedFor('s1', people, saves), 40);
+  assert.match(personError(null, { type: 'zakat', saveId: 's1', currency: '€', amount: 10 }, saves), /عملة/);
+  assert.equal(personError(null, { type: 'zakat', saveId: 's1', currency: '$', amount: 10 }, saves), '');
+  // تسليم جزئي ثم خفض المبلغ أو تغيير العملة
+  const p = { id: 'c', type: 'zakat', currency: '$', amount: 50, deliveries: [{ amount: 30 }] };
+  assert.match(personError(p, { type: 'zakat', currency: '$', amount: 20, saveId: '' }, saves), /سُلِّم/);
+  assert.match(personError(p, { type: 'zakat', currency: '€', amount: 50, saveId: '' }, saves), /العملة/);
+  assert.match(personError(p, { type: 'sadaqa', currency: '$', amount: 50, saveId: '' }, saves), /النوع/);
+  // نسخة مستوردة متناقضة تُصحّح
+  const fixed = sanitizeBook({ saves, people: [{ id: 'd', name: 'س', type: 'zakat', currency: '€', saveId: 's1', amount: 5, deliveries: [{ id: 'x', amount: 20 }] }] });
+  assert.equal(fixed.people[0].amount, 20);
+  assert.equal(fixed.people[0].saveId, '');
+});
+
+test('LOG-12: حذف ذكر خاص يزيل مراجعه من المفضلة والورد والتقدّم', async () => {
+  const { removeCustom, state: st } = await import('../src/store.js');
+  st.custom = [{ id: 'custom-x', t: 'سبحان الله', n: 3 }];
+  st.favorites = ['custom-x', 'm1'];
+  st.mywird = [{ id: 'custom-x', n: 3 }, { id: 'm1', n: 1 }];
+  st.progress.counts['custom-x'] = 2;
+  removeCustom('custom-x');
+  assert.equal(st.custom.length, 0);
+  assert.deepEqual(st.favorites, ['m1']);
+  assert.deepEqual(st.mywird.map((w) => w.id), ['m1']);
+  assert.equal(st.progress.counts['custom-x'], undefined);
+  st.favorites = []; st.mywird = [];
+});
+
+test('LOG-12: shareText يميّز النسخ الفاشل والإلغاء', async () => {
+  const { shareText, isShareCancel } = await import('../src/native.js');
+  assert.equal(isShareCancel({ message: 'Share canceled' }), true);
+  assert.equal(isShareCancel({ name: 'AbortError' }), true);
+  assert.equal(isShareCancel(new Error('boom')), false);
+  const nav = globalThis.navigator;
+  const doc = globalThis.document;
+  Object.defineProperty(globalThis, 'navigator', { value: { clipboard: { writeText: () => Promise.reject(new Error('denied')) } }, configurable: true });
+  globalThis.document = { createElement: () => { throw new Error('no dom'); } };
+  try {
+    assert.equal(await shareText('x'), 'failed', 'لا «نُسخ» زائفة عند فشل النسخ');
+  } finally {
+    Object.defineProperty(globalThis, 'navigator', { value: nav, configurable: true });
+    globalThis.document = doc;
+  }
+});
+
+test('BLD-07: مخزن عامل الخدمة باسم الإصدار، والحذف محصور بمخازن سكينة، وبديل HTML للتنقل فقط', async () => {
+  const { VERSION } = await import('../src/version.js');
+  const sw = readFileSync(new URL('../www/sw.js', import.meta.url), 'utf8');
+  assert.ok(sw.indexOf(`const CACHE = \`\${PREFIX}${VERSION}\``) !== -1, 'اسم المخزن يطابق الإصدار');
+  assert.match(sw, /k\.indexOf\(PREFIX\) === 0/);
+  assert.match(sw, /e\.request\.mode === 'navigate'/);
+});
+
+test('BLD-02: لا Object.fromEntries ولا flatMap في شيفرة التطبيق (WebView أندرويد ٨)', async () => {
+  const { readdirSync, statSync } = await import('node:fs');
+  const walk = (d) => readdirSync(d).flatMap((f) => { const p = `${d}/${f}`; return statSync(p).isDirectory() ? walk(p) : p.endsWith('.js') ? [p] : []; });
+  const files = walk(new URL('../src', import.meta.url).pathname);
+  for (const f of files) {
+    const s = readFileSync(f, 'utf8').replace(/\/\/.*$/gm, '');
+    assert.ok(!/Object\.fromEntries|\.flatMap\(|\.flat\(\)/.test(s), f);
+  }
+});

@@ -80,27 +80,33 @@ export async function copyText(text) {
     await navigator.clipboard.writeText(text);
     return true;
   } catch (e) {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    ta.remove();
-    return ok;
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return !!ok;
+    } catch (e2) { return false; }
   }
 }
 
+/** إلغاء المستخدم لنافذة المشاركة ليس فشلاً */
+export const isShareCancel = (e) => /cancel|abort/i.test(`${(e && e.name) || ''} ${(e && e.message) || ''}`);
+
+/** @returns {Promise<'shared'|'copied'|'cancelled'|'failed'>} */
 export async function shareText(text, title = 'سكينة') {
   try {
-    if (isNative) { await Share.share({ title, text, dialogTitle: 'مشاركة' }); return true; }
-    if (navigator.share) { await navigator.share({ title, text }); return true; }
+    if (isNative) { await Share.share({ title, text, dialogTitle: 'مشاركة' }); return 'shared'; }
+    if (navigator.share) { await navigator.share({ title, text }); return 'shared'; }
   } catch (e) {
-    return false;
+    return isShareCancel(e) ? 'cancelled' : 'failed';
   }
-  return copyText(text).then(() => 'copied');
+  return (await copyText(text)) ? 'copied' : 'failed';
 }
 
 const Printer = registerPlugin('SakinaPrint');
@@ -141,15 +147,17 @@ export async function saveImageToGallery(dataUrl, name = 'sakina.png') {
 /** مشاركة صورة PNG (dataURL) */
 export async function shareImage(dataUrl, name = 'sakina.png') {
   if (isNative) {
-    const { uri } = await Filesystem.writeFile({ path: `share/${name}`, data: dataUrl.split(',')[1], directory: Directory.Cache, recursive: true });
-    await Share.share({ title: 'سكينة', files: [uri], dialogTitle: 'مشاركة البطاقة' });
-    return true;
+    try {
+      const { uri } = await Filesystem.writeFile({ path: `share/${name}`, data: dataUrl.split(',')[1], directory: Directory.Cache, recursive: true });
+      await Share.share({ title: 'سكينة', files: [uri], dialogTitle: 'مشاركة البطاقة' });
+      return 'shared';
+    } catch (e) { return isShareCancel(e) ? 'cancelled' : 'failed'; }
   }
   try {
     const blob = await (await fetch(dataUrl)).blob();
     const file = new File([blob], name, { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'سكينة' }); return true; }
-  } catch (e) { /* ننزّل الصورة بدلاً من ذلك */ }
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'سكينة' }); return 'shared'; }
+  } catch (e) { if (isShareCancel(e)) return 'cancelled'; /* وإلا ننزّل الصورة */ }
   const a = document.createElement('a');
   a.href = dataUrl;
   a.download = name;
@@ -158,17 +166,37 @@ export async function shareImage(dataUrl, name = 'sakina.png') {
 }
 
 /** حفظ ملف نصي (تصدير البيانات) */
+/** @returns {Promise<'shared'|'downloaded'|'cancelled'|'failed'>} */
 export async function saveTextFile(name, text) {
   if (isNative) {
-    const { uri } = await Filesystem.writeFile({ path: `share/${name}`, data: text, directory: Directory.Cache, encoding: 'utf8', recursive: true });
-    await Share.share({ title: name, files: [uri], dialogTitle: 'حفظ نسخة البيانات' });
-    return;
+    try {
+      const { uri } = await Filesystem.writeFile({ path: `share/${name}`, data: text, directory: Directory.Cache, encoding: 'utf8', recursive: true });
+      await Share.share({ title: name, files: [uri], dialogTitle: 'حفظ نسخة البيانات' });
+      return 'shared';
+    } catch (e) { return isShareCancel(e) ? 'cancelled' : 'failed'; }
   }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    return 'downloaded';
+  } catch (e) { return 'failed'; }
+}
+
+/** حذف ملفات المشاركة المؤقتة الأقدم من يوم (قد تحوي نسخة احتياطية) */
+export async function cleanShareCache(maxAgeMs = 86400000) {
+  if (!isNative) return;
+  try {
+    const { files } = await Filesystem.readdir({ path: 'share', directory: Directory.Cache });
+    const now = Date.now();
+    for (const f of files || []) {
+      const name = typeof f === 'string' ? f : f.name;
+      const mtime = typeof f === 'object' && f.mtime ? +f.mtime : 0;
+      if (name && (!mtime || now - mtime > maxAgeMs)) await Filesystem.deleteFile({ path: `share/${name}`, directory: Directory.Cache }).catch(() => {});
+    }
+  } catch (e) { /* لا مجلد بعد */ }
 }
 
 /** الموقع الحالي؛ opts تغيّر المهلة والعمر الأقصى لمستدعٍ بعينه دون مساس بالافتراضي */
@@ -203,9 +231,11 @@ export const notificationsSupported = isNative;
 
 export async function ensureNotifyPermission() {
   if (!isNative) return false;
-  let p = await LocalNotifications.checkPermissions();
-  if (p.display !== 'granted') p = await LocalNotifications.requestPermissions();
-  return p.display === 'granted';
+  try {
+    let p = await LocalNotifications.checkPermissions();
+    if (p.display !== 'granted') p = await LocalNotifications.requestPermissions();
+    return p.display === 'granted';
+  } catch (e) { return false; }
 }
 
 /** عند الضغط على الإشعار: الانتقال إلى الصفحة المناسبة */
@@ -235,9 +265,19 @@ export async function openExactAlarmSettings() {
 /**
  * يعيد جدولة كل التنبيهات من الصفر.
  * @param {Array<{id:number,title:string,body:string,at?:Date,daily?:{hour:number,minute:number},weekly?:{weekday:number,hour:number,minute:number}}>} list
+ * @returns {Promise<{ok:boolean, count:number, error?:string}>} حالة الجدولة الفعلية
  */
 export async function scheduleAll(list) {
-  if (!isNative) return;
+  if (!isNative) return { ok: true, count: 0 };
+  try {
+    await scheduleAllRaw(list);
+    return { ok: true, count: list.length };
+  } catch (e) {
+    return { ok: false, count: 0, error: (e && e.message) || 'schedule-failed' };
+  }
+}
+
+async function scheduleAllRaw(list) {
   const pending = await LocalNotifications.getPending();
   if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
   if (!list.length) return;

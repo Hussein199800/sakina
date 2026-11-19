@@ -156,10 +156,11 @@ function editor(existing, kind) {
         const i = state.reminders.findIndex((x) => x.id === r.id);
         if (i === -1) state.reminders.push(r); else state.reminders[i] = r;
         save();
-        await rescheduleNotifications();
+        const st = await rescheduleNotifications();
         close();
         const first = occurrences(r, new Date(), 45, state.settings.hijriAdjust)[0];
-        toast(first ? 'تم حفظ التذكير' : 'تم الحفظ، لكن لا يوجد موعد خلال الأيام القادمة', 'bell');
+        if (st && !st.ok) toast('حُفظ التذكير لكن تعذّرت جدولته على الهاتف، حاول مرة أخرى', 'info');
+        else toast(first ? 'تم حفظ التذكير' : 'تم الحفظ، لكن لا يوجد موعد خلال الأيام القادمة', 'bell');
         refresh();
       });
       const del = body.querySelector('[data-del]');

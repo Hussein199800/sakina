@@ -68,8 +68,9 @@ function listen(root, q) {
   };
   window.addEventListener('deviceorientationabsolute', handler, true);
   window.addEventListener('deviceorientation', handler, true);
-  setTimeout(() => {
-    if (!got) status.textContent = 'لم يُعثر على حساس البوصلة في هذا الجهاز. استخدم زاوية القبلة الظاهرة مع بوصلة أو اتجاه الشمال.';
+  clearTimeout(noSensor);
+  noSensor = setTimeout(() => {
+    if (!got && status.isConnected) status.textContent = 'لم يُعثر على حساس البوصلة في هذا الجهاز. استخدم زاوية القبلة الظاهرة مع بوصلة أو اتجاه الشمال.';
   }, 2500);
 }
 
@@ -85,7 +86,9 @@ export function mount(root) {
   } else listen(root, q);
 }
 
+let noSensor;
 export function unmount() {
+  clearTimeout(noSensor);
   if (!handler) return;
   window.removeEventListener('deviceorientationabsolute', handler, true);
   window.removeEventListener('deviceorientation', handler, true);

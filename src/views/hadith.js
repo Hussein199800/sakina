@@ -42,13 +42,19 @@ export function render(param) {
     <div class="hd-list" data-hd><div class="empty"><span class="spinner"></span></div></div>`;
 }
 
+// فهرس البحث المطبّع يُحسب مرة لكل حديث ويبقى بين الرسمات وتبديل الكتب
+const KEYS = new Map();
+const keyOf = (t) => { let k = KEYS.get(t); if (k === undefined) { k = normalize(t); KEYS.set(t, k); } return k; };
+
 function filterList(list) {
   const words = normalize(query).split(' ').filter(Boolean);
   if (!words.length) return list;
-  return list.filter((h) => { const k = h.key || (h.key = normalize(h.t)); return words.every((w) => k.indexOf(w) !== -1); });
+  return list.filter((h) => { const k = keyOf(h.t); return words.every((w) => k.indexOf(w) !== -1); });
 }
 
+let drawSeq = 0;
 async function draw(root) {
+  const seq = ++drawSeq;
   const box = root.querySelector('[data-hd]');
   const booksBox = root.querySelector('[data-hd-books]');
   try {
@@ -62,6 +68,8 @@ async function draw(root) {
       booksBox.innerHTML = `<div class="cd-occ">${[{ id: -1, title: 'كل الكتب' }, ...d.books].map((b) => `<button class="chip ${riyadBook === b.id ? 'on' : ''}" data-act="hd-rbook" data-id="${b.id}">${esc(b.title.replace(/ـ+/g, ''))}</button>`).join('')}</div>`;
       list = d.h.filter((h) => riyadBook === -1 || h[1] === riyadBook).map(([n, , t]) => ({ n, t, src: `رياض الصالحين: ${n}` }));
     }
+    // نتيجة متأخرة لرسم أقدم أو لصفحة غادرها المستخدم: لا تُكتب
+    if (seq !== drawSeq || !box.isConnected) return;
     const found = filterList(list);
     const page = found.slice(0, shown);
     box.innerHTML = found.length ? `${query ? `<p class="muted results-count">${num(found.length)} حديثاً</p>` : ''}
@@ -70,6 +78,7 @@ async function draw(root) {
       : `<div class="empty">${icon('search')}<p>لا نتائج</p></div>`;
     root.hdList = list;
   } catch (e) {
+    if (seq !== drawSeq || !box.isConnected) return;
     box.innerHTML = `<div class="empty">${icon('info')}<p>تعذّر تحميل الأحاديث</p></div>`;
   }
 }
@@ -78,10 +87,11 @@ let rootEl;
 export function mount(root) {
   rootEl = root;
   const q = root.querySelector('[data-hq]');
-  let t;
-  q.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { query = q.value; shown = PAGE; draw(root); }, 200); });
+  q.addEventListener('input', () => { clearTimeout(typing); typing = setTimeout(() => { query = q.value; shown = PAGE; draw(root); }, 200); });
   draw(root);
 }
+let typing;
+export function unmount() { clearTimeout(typing); drawSeq += 1; rootEl = null; }
 
 export const actions = {
   'hd-book': (el) => { window.location.replace(`#/hadith/${el.dataset.k}`); },

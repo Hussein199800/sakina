@@ -149,7 +149,10 @@ async function drawPreview(root) {
 }
 
 /** تصغير صورة الخلفية قبل حفظها في المسودة حتى لا تمتلئ ذاكرة التطبيق */
+const MAX_IMAGE = 15 * 1024 * 1024; // صورة أكبر من هذا قد تستنزف ذاكرة الهاتف عند فكّها
 function readImage(file) {
+  if (!file || file.size > MAX_IMAGE) return Promise.reject(new Error('too-big'));
+  if (file.type && !/^image\//.test(file.type)) return Promise.reject(new Error('not-image'));
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => {
@@ -192,7 +195,8 @@ export function mount(root) {
   if (bg) bg.addEventListener('change', async () => {
     const f = bg.files && bg.files[0];
     if (!f) return;
-    try { set({ bgImage: await readImage(f) }); } catch (e) { toast('تعذّر فتح الصورة', 'info'); }
+    try { set({ bgImage: await readImage(f) }); } catch (e) { toast(e && e.message === 'too-big' ? 'الصورة كبيرة جداً، اختر صورة أصغر من ١٥ م.ب' : 'تعذّر فتح الصورة', 'info'); }
+    bg.value = '';
   });
   drawPreview(root);
 }
@@ -241,8 +245,8 @@ export const actions = {
   'cd-set': (el) => set({ [el.dataset.k]: el.dataset.v }),
   'cd-toggle': (el) => set({ [el.dataset.k]: !spec()[el.dataset.k] }),
   'cd-scale': (el) => set({ scale: Math.round(Math.max(0.8, Math.min(1.3, spec().scale + +el.dataset.d)) * 10) / 10 }),
-  'cd-share-img': async () => { const out = await ready(); if (out) await shareImage(out.url, fileName()); },
-  'cd-share-txt': async () => { if (await ready()) { const r = await shareText(cardPlainText(spec())); if (r === 'copied') toast('نُسخ النص'); } },
+  'cd-share-img': async () => { const out = await ready(); if (out && (await shareImage(out.url, fileName())) === 'failed') toast('تعذّرت المشاركة، حاول مرة أخرى', 'info'); },
+  'cd-share-txt': async () => { if (await ready()) { const r = await shareText(cardPlainText(spec())); if (r === 'copied') toast('نُسخ النص'); if (r === 'failed') toast('تعذّرت المشاركة، حاول مرة أخرى', 'info'); } },
   'cd-save-img': async () => {
     const out = await ready();
     if (!out) return;
@@ -260,7 +264,7 @@ export const actions = {
         const b = e.target.closest('[data-m]');
         if (!b) return;
         close();
-        if (b.dataset.m === 'copy') { await copyText(cardPlainText(spec())); toast('نُسخ النص'); }
+        if (b.dataset.m === 'copy') { if (await copyText(cardPlainText(spec()))) toast('نُسخ النص'); else toast('تعذّر النسخ', 'info'); }
         if (b.dataset.m === 'save') {
           const { bgImage, ...rest } = spec(); // لا تُحفظ صورة الخلفية في التصاميم لتوفير المساحة
           state.cardDesigns.unshift({ id: `c-${Date.now().toString(36)}`, at: Date.now(), title: cardHeading(spec()) || 'بطاقة', spec: rest });

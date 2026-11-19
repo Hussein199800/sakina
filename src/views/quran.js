@@ -122,13 +122,14 @@ async function runSearch(el) {
   if (!q) { refresh(); return; }
   try {
     const [hits, text] = await Promise.all([searchQuran(q), loadText()]);
-    if (seq !== searchSeq) return;
+    if (seq !== searchSeq || !body || !body.isConnected) return;
     body.innerHTML = hits.length ? `<p class="muted results-count">${num(hits.length)}${hits.length >= 80 ? '+' : ''} نتيجة</p>
       <div class="results">${hits.map((i) => {
         const { s, a } = refOf(i);
         return `<button class="result" data-act="go" data-to="#/mushaf/${pageOf(i)}:${i}"><small>سورة ${suraName(s)} · الآية ${num(a)}</small><p class="quran-text">${ayahOnly(text, i)}</p></button>`;
       }).join('')}</div>` : `<div class="empty">${icon('search')}<p>لا نتائج لـ «${esc(q)}»</p><small>اكتب كلمة من الآية بدون تشكيل</small></div>`;
   } catch (e) {
+    if (seq !== searchSeq || !body || !body.isConnected) return;
     body.innerHTML = `<div class="empty">${icon('info')}<p>تعذّر تحميل نص المصحف</p></div>`;
   }
 }
@@ -143,7 +144,7 @@ export function mount(el) {
   });
   if (query.trim()) runSearch(el);
 }
-export function unmount() { clearTimeout(typing); }
+export function unmount() { clearTimeout(typing); searchSeq += 1; }
 
 function endDate(perDay, fromPage) {
   const d = new Date(Date.now() + (Math.ceil((604 - fromPage + 1) / perDay) - 1) * 86400000);
@@ -194,13 +195,13 @@ export function khatmaSheet() {
       upd();
       body.querySelector('[data-k-save]').addEventListener('click', async () => {
         const remind = sw.classList.contains('on');
-        if (remind && notificationsSupported) await ensureNotifyPermission();
+        const denied = remind && notificationsSupported && !(await ensureNotifyPermission());
         const time = body.querySelector('#k-time').dataset.value || '20:00';
         if (k) Object.assign(k, { perDay, remind, time }); else startKhatma({ perDay, time, remind, fromPage: from });
         save();
         rescheduleNotifications();
         close();
-        toast(k ? 'تم حفظ خطة الختمة' : 'بدأت ختمتك، يسّر الله لك', 'flag');
+        toast(denied ? 'حُفظت الختمة، لكن التذكير لن يصل حتى تسمح بالإشعارات من إعدادات الهاتف' : k ? 'تم حفظ خطة الختمة' : 'بدأت ختمتك، يسّر الله لك', denied ? 'info' : 'flag');
         refresh();
       });
       const stop = body.querySelector('[data-k-stop]');

@@ -258,8 +258,9 @@ export const actions = {
   'setup-again': () => { restartSetup(); document.location.hash = '#/setup'; },
   'data-export': async () => {
     flush();
-    await saveTextFile(`sakina-backup-${new Date().toISOString().slice(0, 10)}.json`, serialize(1));
-    toast('تم تجهيز نسخة من بياناتك', 'download');
+    const r = await saveTextFile(`sakina-backup-${new Date().toISOString().slice(0, 10)}.json`, serialize(1));
+    if (r === 'failed') toast('تعذّر تصدير النسخة، حاول مرة أخرى', 'info');
+    else if (r !== 'cancelled') toast('تم تجهيز نسخة من بياناتك', 'download');
   },
   'data-clear': async () => {
     if (!(await confirmSheet('حذف كل البيانات', 'ستُحذف الإعدادات والتقدّم والمفضلة وأذكارك الخاصة ووردك والختمة والتذكيرات وسجلّ الالتزام. لا يمكن التراجع، فصدّر نسخة احتياطية أولاً إن أردت.', 'حذف نهائي', true))) return;

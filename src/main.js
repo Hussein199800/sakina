@@ -1,8 +1,9 @@
 import { state, flush, today } from './store.js';
-import { applyTheme, hasSheet, closeSheet, closeAllSheets, toast } from './ui.js';
+import { dateKey } from './dates.js';
+import { applyTheme, hasSheet, closeSheet, closeAllSheets, toast, labelSwitches } from './ui.js';
 import { setDigits } from './text.js';
 import { icon } from './icons.js';
-import { App, isNative, onNotificationTap, onDeepLink, overlayGranted } from './native.js';
+import { App, isNative, onNotificationTap, onDeepLink, overlayGranted, cleanShareCache } from './native.js';
 import { rescheduleNotifications } from './services.js';
 import { state as appState, hadData, save } from './store.js';
 import { checkForUpdate, updateAvailable } from './updates.js';
@@ -87,6 +88,7 @@ export function render(keepScroll = false) {
     if (a.dataset.tab === 'more') a.classList.toggle('badge', updateAvailable());
   });
   if (view.mount) view.mount(viewEl, param);
+  labelSwitches(viewEl);
   window.scrollTo(0, same || keepScroll ? y : 0);
 }
 
@@ -99,8 +101,28 @@ document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const fn = ACTIONS[el.dataset.act];
-  if (fn) { e.preventDefault(); fn(el, e); }
+  if (!fn) return;
+  e.preventDefault();
+  // لا يبقى خطأ غير ملتقط من إجراء غير متزامن، ويعود الزر من حالة الانشغال
+  const fail = (err) => { console.error(err); toast('تعذّر إتمام العملية، حاول مرة أخرى', 'info'); };
+  try {
+    const r = fn(el, e);
+    if (r && typeof r.then === 'function') {
+      el.setAttribute('aria-busy', 'true');
+      Promise.resolve(r).catch(fail).then(() => el.removeAttribute('aria-busy'));
+    }
+  } catch (err) { fail(err); }
 });
+
+// تغيّر اليوم المحلي أثناء بقاء التطبيق مفتوحاً (منتصف الليل): تجديد العرض والمواعيد
+let dayKey = dateKey();
+setInterval(() => {
+  const k = dateKey();
+  if (k === dayKey) return;
+  dayKey = k;
+  if (!document.hidden) render(true);
+  rescheduleNotifications();
+}, 60000);
 
 // زر الرجوع في أندرويد: يغلق اللوح المفتوح، ثم يرجع للصفحة السابقة، ثم للرئيسية، ثم يخرج
 if (isNative) {
@@ -131,6 +153,7 @@ setDigits(state.settings.digits);
 if (!location.hash) history.replaceState(null, '', '#/home');
 render();
 rescheduleNotifications();
+cleanShareCache();
 onNotificationTap((route) => { location.hash = route; });
 onDeepLink((route) => { location.hash = route; });
 

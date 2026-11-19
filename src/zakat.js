@@ -46,7 +46,12 @@ export function computeZakat(i) {
   const basis = i.basis === 'silver' ? 'silver' : 'gold';
   const price = basis === 'gold' ? n(i.goldPrice) : n(i.silverPrice);
   const nisab = price ? (basis === 'gold' ? NISAB_GOLD_G : NISAB_SILVER_G) * price : 0;
-  const reached = nisab > 0 && net >= nisab;
+  // كل معدن يملك المستخدم منه شيئاً يحتاج سعراً، وإلا كان الصافي ناقصاً
+  const missingList = [];
+  if ((basis === 'gold' || goldPure > 0) && !n(i.goldPrice)) missingList.push('gold');
+  if ((basis === 'silver' || n(i.silver) > 0) && !n(i.silverPrice)) missingList.push('silver');
+  const incomplete = missingList.length > 0;
+  const reached = !incomplete && nisab > 0 && net >= nisab;
   // التقريب إلى أقرب جزء من مئة لتجنّب أخطاء الكسور العشرية في العرض
   const round = (v) => Math.round(v * 100) / 100;
   return {
@@ -56,7 +61,8 @@ export function computeZakat(i) {
     assets: round(assets),
     net: round(net),
     nisab: round(nisab),
-    missingPrice: !price,
+    missingPrice: incomplete,
+    missing: missingList,
     reached,
     due: reached ? round(net * RATE) : 0,
   };
