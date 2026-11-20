@@ -9,6 +9,7 @@ export const go = (hash) => { window.location.hash = hash; };
 
 /** وقت بصيغة ١٢ ساعة (٥:٢٦ ص) في منطقة الموقع */
 export function fmtTime(date, tz = place().tz) {
+  if (!date || !Number.isFinite(date.getTime())) return '—';
   const { h, min } = hmInTz(date, tz);
   const h12 = h % 12 || 12;
   return `${num(h12)}:${num(String(min).padStart(2, '0'))} ${h < 12 ? 'ص' : 'م'}`;

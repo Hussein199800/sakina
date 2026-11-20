@@ -61,7 +61,7 @@ function sunPosition(jd) {
  * @param {{y:number,m:number,d:number}} date التاريخ المحلي للموقع
  * @param {{lat:number,lng:number}} loc
  * @param {{method:string, asr?:'shafi'|'hanafi', ramadan?:boolean}} opts
- * @returns {Record<string, Date>} أوقات الصلوات كتواريخ مطلقة
+ * @returns {Record<string, Date|null>} أوقات الصلوات كتواريخ مطلقة؛ null للوقت غير المتاح (كالقطبين: لا شروق أو لا غروب)
  */
 export function computeTimes(date, loc, opts) {
   const method = METHODS[opts.method] || METHODS.mwl;
@@ -108,7 +108,7 @@ export function computeTimes(date, loc, opts) {
 
   const base = Date.UTC(date.y, date.m - 1, date.d);
   const out = {};
-  for (const p of PRAYERS) out[p.key] = new Date(base + Math.round(t[p.key] * 60) * 60000);
+  for (const p of PRAYERS) out[p.key] = Number.isFinite(t[p.key]) ? new Date(base + Math.round(t[p.key] * 60) * 60000) : null;
   return out;
 }
 

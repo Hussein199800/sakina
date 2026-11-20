@@ -1,7 +1,7 @@
 // شاشة التخصيص عند أول تثبيت: خطوات قصيرة يختار فيها المستخدم ما يناسبه، وكلها قابلة للتخطي والتعديل لاحقاً
 import { state, save } from '../store.js';
 import { icon } from '../icons.js';
-import { num, setDigits } from '../text.js';
+import { num, esc, setDigits } from '../text.js';
 import { THEMES, applyTheme, toast, dhikrText } from '../ui.js';
 import { location, methodKey, rescheduleNotifications } from '../services.js';
 import { METHODS } from '../prayer.js';
@@ -33,7 +33,7 @@ function body() {
       const loc = location();
       return `<h2 class="su-title">${icon('pin')} موقعك</h2>
         <p class="su-sub">لحساب مواقيت الصلاة واتجاه القبلة بدقة.</p>
-        <section class="card su-loc"><b>${loc.name}</b><small>${loc.country || ''}</small><small class="muted">طريقة الحساب: ${METHODS[methodKey()].name}</small></section>
+        <section class="card su-loc"><b>${esc(loc.name)}</b><small>${esc(loc.country || '')}</small><small class="muted">طريقة الحساب: ${METHODS[methodKey()].name}</small></section>
         <button class="btn btn-primary wide" data-act="su-city">${icon('location')} تحديد الموقع أو اختيار المدينة</button>`;
     }
     case 'look':
@@ -115,13 +115,14 @@ async function finish() {
   const s = state.settings;
   if (khatmaPlan && !state.khatma) startKhatma({ perDay: khatmaPlan, time: '20:00', remind: true, fromPage: 1 });
   const wantsNotif = s.notif.morning.on || s.notif.evening.on || s.notif.sleep.on || s.notif.prayers || (khatmaPlan && notificationsSupported);
-  if (wantsNotif && notificationsSupported) await ensureNotifyPermission();
+  const denied = wantsNotif && notificationsSupported && !(await ensureNotifyPermission());
   state.app.welcomed = true;
   save();
   await rescheduleNotifications();
   step = 0;
   khatmaPlan = 0;
   go('#/home');
+  if (denied) toast('لن تصل التذكيرات حتى تسمح بالإشعارات من إعدادات الهاتف', 'info');
 }
 
 export const actions = {

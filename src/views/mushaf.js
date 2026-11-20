@@ -21,7 +21,7 @@ let rootRef;
 function parse(param) {
   const [p, i] = String(param || '').split(':');
   page = Math.min(TOTAL_PAGES, Math.max(1, parseInt(p, 10) || state.quran.lastPage || 1));
-  highlight = i !== undefined && i !== '' ? +i : -1;
+  highlight = /^\d{1,4}$/.test(i || '') && +i < 6236 ? +i : -1;
 }
 
 function pageTitle() {

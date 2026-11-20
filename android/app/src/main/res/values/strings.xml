@@ -4,4 +4,5 @@
     <string name="title_activity_main">سكينة</string>
     <string name="package_name">com.altaweel.sakina</string>
     <string name="custom_url_scheme">com.altaweel.sakina</string>
+    <string name="widget_description">الصلاة القادمة ووقتها، وفتح وردك بلمسة</string>
 </resources>

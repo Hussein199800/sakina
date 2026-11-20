@@ -35,9 +35,28 @@ export function totals(people) {
   return Object.values(out).sort((a, b) => (a.type === b.type ? a.currency.localeCompare(b.currency) : a.type === 'zakat' ? -1 : 1));
 }
 
-/** ما خُصّص من حساب زكاة محفوظ بعينه (من المستحقين المرتبطين به فقط) */
-export function allocatedFor(saveId, people = book().people) {
-  return round2(people.filter((p) => p.saveId === saveId && p.type === 'zakat').reduce((s, p) => s + p.amount, 0));
+/** ما خُصّص من حساب زكاة محفوظ بعينه (من المستحقين المرتبطين به وبعملته فقط) */
+export function allocatedFor(saveId, people = book().people, saves = book().saves) {
+  const sv = saves.find((x) => x.id === saveId);
+  const cur = sv ? sv.currency || '' : null;
+  return round2(people.filter((p) => p.saveId === saveId && p.type === 'zakat' && (cur === null || (p.currency || '') === cur)).reduce((s, p) => s + p.amount, 0));
+}
+
+/**
+ * تحقّق من تعديل مستحق قبل حفظه؛ يعيد رسالة الخطأ أو ''.
+ * لا يُخفّض المبلغ دون المسلَّم، ولا تتغير العملة أو النوع بعد وجود تسليمات، ويُشترط تطابق عملة الحساب المرتبط.
+ */
+export function personError(existing, patch, saves = book().saves) {
+  if (patch.saveId) {
+    const sv = saves.find((x) => x.id === patch.saveId);
+    if (sv && (sv.currency || '') !== (patch.currency || '')) return `عملة المستحق يجب أن تطابق عملة الحساب المرتبط (${sv.currency || 'بلا عملة'})`;
+  }
+  if (existing && (existing.deliveries || []).length) {
+    if (patch.amount + 0.004 < delivered(existing)) return 'لا يمكن أن يقل المبلغ عمّا سُلِّم فعلاً';
+    if ((patch.currency || '') !== (existing.currency || '')) return 'لا يمكن تغيير العملة بعد تسجيل تسليمات';
+    if (patch.type !== existing.type) return 'لا يمكن تغيير النوع (زكاة/صدقة) بعد تسجيل تسليمات';
+  }
+  return '';
 }
 
 export function filterPeople(people, { q = '', group = '', type = '', status = '' } = {}) {
@@ -72,5 +91,12 @@ export function sanitizeBook(b) {
     dueDate: /^\d{4}-\d{2}-\d{2}$/.test(p.dueDate || '') ? p.dueDate : '', saveId: typeof p.saveId === 'string' ? p.saveId : '',
     deliveries: Array.isArray(p.deliveries) ? p.deliveries.filter((d) => isObj(d) && n(d.amount) > 0).map((d) => ({ id: String(d.id || uid('dl')), at: String(d.at || ''), amount: n(d.amount) })) : [],
   })) : [];
+  // نسخ متناقضة: المبلغ لا يقل عن المسلَّم، والربط بحساب بعملة أخرى أو غير موجود يُلغى
+  for (const p of people) {
+    const d = delivered(p);
+    if (p.amount < d) p.amount = d;
+    const sv = saves.find((x) => x.id === p.saveId);
+    if (p.saveId && (!sv || (sv.currency || '') !== p.currency)) p.saveId = '';
+  }
   return { saves, people, groups };
 }

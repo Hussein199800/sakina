@@ -22,6 +22,7 @@ export function nightFromTimes(now = new Date()) {
   const before = now < t.fajr;
   const maghrib = before ? timesFor(addDays(g, -1)).maghrib : t.maghrib;
   const fajr = before ? t.fajr : timesFor(addDays(g, 1)).fajr;
+  if (!maghrib || !fajr) return null; // لا غروب أو لا فجر في هذا الموقع والتاريخ
   const hm = (d) => { const x = hmInTz(d, tz); return `${pad(x.h)}:${pad(x.min)}`; };
   return { maghrib: hm(maghrib), fajr: hm(fajr) };
 }
@@ -38,11 +39,19 @@ export function nightParts(maghrib, fajr) {
 function current() {
   const q = state.qiyam;
   if (q && q.manual) return { maghrib: q.maghrib, fajr: q.fajr, manual: true };
-  return { ...nightFromTimes(), manual: false };
+  const n = nightFromTimes();
+  return n ? { ...n, manual: false } : null;
 }
 
 export function render() {
   const c = current();
+  if (!c) {
+    return `${fullHead('قيام الليل', 'نصف الليل والثلث الأخير')}
+    <div class="qy-page">
+      <p class="note">${icon('info')} وقتا المغرب أو الفجر غير متاحين بهذه الطريقة لهذا الموقع والتاريخ، فأدخلهما يدوياً.</p>
+      <button class="btn btn-primary wide" data-act="qy-mode" data-m="manual">${icon('settings')} إدخال يدوي</button>
+    </div>`;
+  }
   const p = nightParts(c.maghrib, c.fajr);
   const hours = Math.floor(p.len / 60);
   const mins = p.len % 60;
@@ -91,7 +100,7 @@ export function mount(root) {
 export const actions = {
   'qy-mode': (el) => {
     const manual = el.dataset.m === 'manual';
-    const base = state.qiyam && state.qiyam.maghrib ? state.qiyam : nightFromTimes();
+    const base = (state.qiyam && state.qiyam.maghrib ? state.qiyam : nightFromTimes()) || { maghrib: '19:00', fajr: '04:30' };
     state.qiyam = { manual, maghrib: base.maghrib, fajr: base.fajr };
     save();
     refresh();

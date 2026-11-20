@@ -1,5 +1,5 @@
 // التبويب الثاني: مكتبة الأذكار والأدعية
-import { state, save } from '../store.js';
+import { state, save, removeCustom } from '../store.js';
 import { icon } from '../icons.js';
 import { num, esc, normalize, parseNum } from '../text.js';
 import { CATEGORIES } from '../data/adhkar.js';
@@ -11,7 +11,7 @@ import { pageHead, bar, go } from './common.js';
 import { openSheet, toast, dhikrText } from '../ui.js';
 
 let query = '';
-const INDEX = CATEGORIES.flatMap((c) => c.items.map((it, i) => ({ it, cat: c, i, key: normalize(`${c.title} ${it.h || ''} ${it.t}`) })));
+const INDEX = [].concat(...CATEGORIES.map((c) => c.items.map((it, i) => ({ it, cat: c, i, key: normalize(`${c.title} ${it.h || ''} ${it.t}`) }))));
 
 function catCard(c, big = false) {
   const p = catProgress(c.id);
@@ -189,10 +189,7 @@ export function customEditor(existing) {
       });
       const del = body.querySelector('[data-del]');
       if (del) del.addEventListener('click', () => {
-        state.custom = state.custom.filter((c) => c.id !== existing.id);
-        state.favorites = state.favorites.filter((id) => id !== existing.id);
-        delete state.progress.counts[existing.id];
-        save();
+        removeCustom(existing.id);
         close();
         toast('تم حذف الذكر', 'trash');
         document.dispatchEvent(new Event('app:refresh'));

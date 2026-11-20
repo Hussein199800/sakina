@@ -7,8 +7,13 @@ import { icon } from '../icons.js';
 import { num } from '../text.js';
 
 const extra = new Map();
-/** تسجيل نص عابر (آية اليوم، دعاء الحالة...) ليستعمله زر نسخ/مشاركة */
-export function registerText(key, data) { extra.set(key, data); return key; }
+/** نصوص عابرة (أحاديث، آيات…) للنسخ والمشاركة؛ الأقدم يُحذف بعد ٢٠٠ نص حتى لا ينمو السجل بلا حد */
+export function registerText(key, data) {
+  extra.delete(key);
+  extra.set(key, data);
+  if (extra.size > 200) extra.delete(extra.keys().next().value);
+  return key;
+}
 
 function payload(el) {
   const id = el.dataset.id;
@@ -79,6 +84,7 @@ function cardDesigner(p) {
         try {
           const r = await shareImage(current);
           if (r === 'downloaded') toast('تم حفظ البطاقة كصورة', 'download');
+          else if (r === 'failed') toast('تعذّرت المشاركة', 'info');
         } catch (e) { toast('تعذّرت المشاركة', 'info'); }
       });
       draw();
@@ -100,13 +106,15 @@ export function toolsRow(attr, { fav = null, extraBtns = '' } = {}) {
 export const actions = {
   'd-copy': async (el) => {
     const p = payload(el);
-    if (p && (await copyText(fullText(p)))) toast('تم نسخ الذكر بنجاح');
+    if (!p) return;
+    if (await copyText(fullText(p))) toast('تم نسخ الذكر بنجاح'); else toast('تعذّر النسخ', 'info');
   },
   'd-share': async (el) => {
     const p = payload(el);
     if (!p) return;
     const r = await shareText(fullText(p));
     if (r === 'copied') toast('تم نسخ النص لمشاركته');
+    if (r === 'failed') toast('تعذّرت المشاركة، حاول مرة أخرى', 'info');
   },
   'd-image': (el) => {
     const p = payload(el);

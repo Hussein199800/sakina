@@ -2,7 +2,7 @@
 import { state, save } from '../store.js';
 import { icon } from '../icons.js';
 import { num, esc, fmtNum } from '../text.js';
-import { RADII, fetchMosques, routeUrl, googleSearchUrl, directionName } from '../mosques.js';
+import { RADII, fetchMosques, routeUrl, googleSearchUrl, directionName, distanceM, isAbort } from '../mosques.js';
 import { fullHead, fmtDate } from './common.js';
 import { toast } from '../ui.js';
 import { getPosition, openExternal } from '../native.js';
@@ -17,6 +17,16 @@ let handler = null;
 let rootRef = null;
 let heading = 0;
 let active = false; // داخل الصفحة الآن (لتمييز الزيارة الجديدة عن إعادة الرسم)
+let op = 0; // رقم آخر عملية بحث: وحدها تُحدّث الحالة
+let ctrl = null; // لإلغاء طلب الشبكة السابق
+export const FRESH_MS = 15 * 60 * 1000; // صلاحية النتائج المحفوظة لنفس النطاق
+export const MOVE_M = 200; // انتقال يستدعي بحثاً جديداً
+const POS_OPTS = { timeout: 8000, maximumAge: 120000 };
+
+/** هل تكفي النتائج المحفوظة لهذا النطاق وهذا الموقع؟ */
+export function cacheFresh(c, r, pos, now = Date.now()) {
+  return !!(c && c.radius === r && now - (c.at || 0) < FRESH_MS && (!pos || distanceM(c, pos) < MOVE_M));
+}
 
 const cache = () => state.mosques || null;
 const radius = () => (state.settings.mosqueRadius && RADII.indexOf(state.settings.mosqueRadius) !== -1 ? state.settings.mosqueRadius : 2000);
@@ -71,40 +81,60 @@ export function render() {
     <div class="seg" role="radiogroup" aria-label="نطاق البحث">${RADII.map((r) => `<button class="seg-btn ${radius() === r ? 'on' : ''}" data-act="mq-radius" data-r="${r}" role="radio" aria-checked="${radius() === r}">${fmtDistance(r)}</button>`).join('')}</div>
     ${busy ? `<div class="card mq-status"><span class="spinner"></span><p>${phase === 'locating' ? 'جارٍ تحديد موقعك…' : 'جارٍ البحث عن المساجد القريبة…'}</p></div>` : ''}
     ${phase === 'error' ? `<p class="note">${icon('info')} ${errorMsg}</p>` : ''}
-    ${c && !busy ? `${radar(c)}
-      <p class="muted small center mq-when">${c.at ? `آخر بحث: ${fmtDate(new Date(c.at))}` : ''}${phase !== 'done' ? ' · نتائج محفوظة' : ''}</p>
+    ${c ? `${radar(c)}
+      <p class="muted small center mq-when">${c.at ? `آخر بحث: ${fmtDate(new Date(c.at))}` : ''}${phase !== 'done' ? ' · نتائج محفوظة حول موقع البحث السابق' : ''}</p>
+      ${c.limited ? `<p class="note">${icon('info')} النتائج كثيرة في هذا النطاق وقد لا تظهر كلها؛ جرّب نطاقاً أصغر.</p>` : ''}
       ${list(c)}` : ''}
     ${!c && !busy && phase !== 'error' ? `<div class="empty">${icon('mosque')}<p>اعرف المساجد حولك</p><small>نحتاج موقعك واتصالاً بالإنترنت للبحث</small></div>` : ''}
     <div class="row-btns">
       <button class="btn btn-primary" data-act="mq-search" ${busy ? 'disabled' : ''}>${icon('refresh')} ${c ? 'تحديث البحث' : 'ابحث الآن'}</button>
       <button class="btn btn-soft" data-act="mq-google">${icon('search')} في خرائط جوجل</button>
     </div>
-    <p class="muted small center mq-privacy">يُرسَل موقعك التقريبي إلى خدمة OpenStreetMap عند البحث فقط، ولا يُحفظ في أي مكان آخر. قد لا تكون كل المساجد مسجّلة في الخريطة.</p>`;
+    <p class="muted small center mq-privacy">يُرسَل موقعك إلى خادم OpenStreetMap عند البحث فقط، وتُحفظ النتائج وموقع البحث على جهازك وحده لعرضها دون انتظار. قد لا تكون كل المساجد مسجّلة في الخريطة.</p>`;
 }
 
 const rerender = () => document.dispatchEvent(new Event('app:refresh'));
 
-async function search() {
+function cancel() {
+  op += 1;
+  if (ctrl) { try { ctrl.abort(); } catch (e) { /* تجاهل */ } }
+  ctrl = null;
+}
+
+/** بحث جديد يلغي السابق؛ الموقع والنطاق يُثبّتان عند بدايته. force: تجاهل صلاحية المحفوظ */
+async function search(force = false) {
+  cancel();
+  const id = op;
+  const r = radius();
+  const myCtrl = typeof AbortController === 'function' ? new AbortController() : null;
+  ctrl = myCtrl;
+  const live = () => id === op;
   phase = 'locating';
   rerender();
   let pos;
-  try { pos = await getPosition(); } catch (e) {
+  try { pos = await getPosition(POS_OPTS); } catch (e) {
+    if (!live()) return;
     phase = 'error';
     errorMsg = 'تعذّر تحديد موقعك. فعّل خدمة الموقع واسمح لسكينة باستخدامها، ثم حاول مرة أخرى.';
     rerender();
     return;
   }
+  if (!live()) return;
+  if (!force && cacheFresh(cache(), r, pos)) { phase = 'done'; rerender(); return; }
   phase = 'searching';
   rerender();
   try {
-    const items = await fetchMosques(pos, radius());
-    state.mosques = { at: Date.now(), lat: pos.lat, lng: pos.lng, radius: radius(), items: items.slice(0, 60) };
+    const { items, limited } = await fetchMosques(pos, r, { signal: myCtrl ? myCtrl.signal : undefined });
+    if (!live()) return;
+    state.mosques = { at: Date.now(), lat: pos.lat, lng: pos.lng, radius: r, limited, items: items.slice(0, 60) };
     save();
     phase = 'done';
   } catch (e) {
+    if (!live() || isAbort(e)) return;
     phase = 'error';
     errorMsg = 'تعذّر الاتصال بخدمة الخرائط. تأكد من اتصالك بالإنترنت ثم حاول مرة أخرى، أو ابحث في خرائط جوجل.';
   }
+  if (ctrl === myCtrl) ctrl = null;
   rerender();
 }
 
@@ -120,8 +150,8 @@ export function mount(root) {
     active = true;
     if (phase === 'error' || phase === 'done') phase = 'idle';
   }
-  // أول فتح للصفحة دون نتائج محفوظة: نبحث مباشرة
-  if (!cache() && phase === 'idle') { search(); return; }
+  // زيارة جديدة: تُعرض المحفوظات فوراً، ويُبحث تلقائياً إن لم توجد أو انتهت صلاحيتها لهذا النطاق
+  if (phase === 'idle' && !cacheFresh(cache(), radius(), null)) { search(); return; }
   root.querySelectorAll('[data-mq]').forEach((d) => d.addEventListener('click', () => {
     const el = root.querySelector(`#mq-${d.dataset.mq}`);
     if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); }
@@ -150,12 +180,16 @@ export function unmount() {
     handler = null;
   }
   // إعادة الرسم (نفس الصفحة) لا تُعيد الحالة؛ وإلا تكرّر البحث بلا نهاية عند الخطأ
-  if (!/^#\/mosques/.test(window.location.hash)) active = false;
+  if (!/^#\/mosques/.test(window.location.hash)) {
+    active = false;
+    // مغادرة الصفحة تلغي البحث الجاري؛ إعادة الرسم لا تلغيه
+    if (phase === 'locating' || phase === 'searching') { cancel(); phase = 'idle'; }
+  }
   rootRef = null;
 }
 
 export const actions = {
-  'mq-search': () => search(),
+  'mq-search': () => search(true),
   'mq-radius': (el) => {
     state.settings.mosqueRadius = +el.dataset.r;
     save();
@@ -169,7 +203,7 @@ export const actions = {
   'mq-google': async () => {
     const c = cache();
     let p = c ? { lat: c.lat, lng: c.lng } : null;
-    if (!p) { try { p = await getPosition(); } catch (e) { toast('تعذّر تحديد موقعك', 'info'); return; } }
+    if (!p) { try { p = await getPosition(POS_OPTS); } catch (e) { toast('تعذّر تحديد موقعك', 'info'); return; } }
     openExternal(googleSearchUrl(p));
   },
 };

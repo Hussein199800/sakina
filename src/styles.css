@@ -558,10 +558,6 @@ button.tile:active { transform: scale(.98); }
 .about-logo .ic { width: 32px; height: 32px; }
 .about h2 { font-size: 24px; }
 .about > p { margin-top: 6px; font-size: 14px; line-height: 1.9; }
-.dev-card { margin-top: 18px; padding: 18px 16px; border-radius: 22px; background: linear-gradient(150deg, var(--secondary-soft), var(--primary-soft)); }
-.dev-card > small { color: var(--muted); font-size: 12.5px; }
-.dev-name { display: block; font-size: 20px; color: var(--primary); margin: 2px 0 10px; }
-.dev-dua { font-size: 19px; line-height: 2; margin-bottom: 8px; }
 
 /* ============ القبلة ============ */
 .qibla { display: flex; flex-direction: column; align-items: center; gap: 14px; }

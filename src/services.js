@@ -4,7 +4,7 @@ import { CITIES, DEFAULT_CITY } from './data/cities.js';
 import { CATEGORY_BY_ID, ITEM_BY_ID } from './data/adhkar.js';
 import { computeTimes, PRAYERS } from './prayer.js';
 import { ymdInTz, toHijri, addDays, dateKey } from './dates.js';
-import { scheduleAll, notificationsSupported, scheduleOverlays, overlaySupported } from './native.js';
+import { scheduleAll, notificationsSupported, scheduleOverlays, overlaySupported, updateWidget } from './native.js';
 import { occurrences, routeOf } from './reminders.js';
 import { num, pagesLabel } from './text.js';
 import { todayRange } from './khatma.js';
@@ -34,14 +34,17 @@ const FIVE = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 export function nextPrayer(now = new Date()) {
   const g = localToday(now);
   const t = timesFor(g);
-  for (const k of FIVE) if (t[k] > now) return { key: k, at: t[k], times: t, tomorrow: false };
+  for (const k of FIVE) if (t[k] && t[k] > now) return { key: k, at: t[k], times: t, tomorrow: false };
   const t2 = timesFor(addDays(g, 1));
-  return { key: 'fajr', at: t2.fajr, times: t, tomorrow: true };
+  // أول صلاة متاحة غداً؛ وإن لم يتح شيء (خطوط العرض القصوى) فلا صلاة قادمة
+  const k2 = FIVE.find((k) => t2[k]);
+  return k2 ? { key: k2, at: t2[k2], times: t, tomorrow: true } : { key: null, at: null, times: t, tomorrow: true };
 }
 
 /** فترة اليوم لتلوين السماء واقتراح الورد */
 export function dayPeriod(now = new Date()) {
   const t = timesFor(localToday(now));
+  if (!t.fajr || !t.sunrise || !t.asr || !t.maghrib || !t.isha) return 'day'; // أوقات غير متاحة: لون محايد
   if (now < t.fajr) return 'night';
   if (now < t.sunrise) return 'fajr';
   if (now < t.asr) return 'day';
@@ -62,6 +65,7 @@ export const GREETINGS = {
 export function suggestedWird(now = new Date()) {
   const t = timesFor(localToday(now));
   const h = today();
+  if (!t.fajr || !t.dhuhr || !t.asr || !t.isha) return 'morning';
   if (now >= t.fajr && now < t.dhuhr) return 'morning';
   if (now >= t.dhuhr && now < t.asr) return h.m ? 'prayer' : 'morning';
   if (now >= t.asr && now < t.isha) return 'evening';
@@ -158,6 +162,9 @@ const parseTime = (s) => { const [h, m] = s.split(':').map(Number); return { hou
 
 // الجدولة متسلسلة: نداءان متزامنان (مثلاً عند العودة للتطبيق مع تغيير إعداد) لا يتداخلان
 let scheduling = Promise.resolve();
+/** آخر حالة جدولة فعلية (لا رغبة المستخدم): { ok, count, error? } */
+export let scheduleStatus = null;
+
 export function rescheduleNotifications() {
   scheduling = scheduling.then(doReschedule, doReschedule);
   return scheduling;
@@ -165,6 +172,9 @@ export function rescheduleNotifications() {
 
 // حدّ أعلى لعدد الإشعارات المجدولة (أندرويد يرفض أكثر من ٥٠٠ منبّه للتطبيق)
 export const MAX_SCHEDULED = 300;
+/** نافذة الجدولة بالأيام (بديل المحرك الأصلي المؤجّل): تكفي شهراً دون فتح التطبيق */
+export const WINDOW_DAYS = 30;
+const daysUntil = (date, now) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || ''); if (!m) return 0; return Math.ceil((new Date(+m[1], +m[2] - 1, +m[3]) - now) / 86400000); };
 
 const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 /** هل الموعد داخل ساعات الهدوء؟ (تمتد عبر منتصف الليل إذا كانت البداية بعد النهاية) */
@@ -188,26 +198,40 @@ export function buildNotifications(now = new Date()) {
     const r = todayRange(k);
     list.push({ id: 5, title: 'وردك من القرآن', body: `${pagesLabel(k.perDay)} اليوم، ابدأ من الصفحة ${num(r.from)}. «اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعاً لأصحابه»`, daily: parseTime(k.time), route: `#/mushaf/${Math.min(604, k.page)}` });
   }
-  // الصلوات أولاً حتى لا يُسقطها الحدّ الأعلى
+  const timed = [];
+  // نافذة الجدولة: شهر تقريباً، وتُجدَّد عند كل فتح للتطبيق
   if (n.prayers) {
     let g = localToday(now);
-    for (let day = 0; day < 6; day++) {
+    for (let day = 0; day < WINDOW_DAYS; day++) {
       const t = timesFor(g);
       FIVE.forEach((key, i) => {
-        if (t[key] > now) {
+        if (t[key] && t[key] > now) { // لا جدولة لوقت غير متاح
           const name = PRAYERS.find((p) => p.key === key).name;
-          list.push({ id: 100 + day * 10 + i, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home' });
+          timed.push({ id: 100 + day * 10 + i, prayer: true, title: `حان وقت صلاة ${name}`, body: `حيّ على الصلاة، حيّ على الفلاح — ${location().name}`, at: t[key], route: '#/home' });
         }
       });
       g = addDays(g, 1);
     }
   }
-  // التذكيرات المخصّصة: مواعيد محددة لثلاثة أسابيع، وتُجدَّد عند كل فتح للتطبيق
-  let rid = 1000;
+  // التذكيرات المخصّصة: الأحادي يُجدول مهما بعُد تاريخه (حتى سنة)، والبقية ضمن النافذة
   for (const r of state.reminders) {
-    for (const o of occurrences(r, now, 21, state.settings.hijriAdjust).filter((x) => !inQuiet(x.at)).slice(0, 25)) list.push({ id: rid++, title: o.title, body: o.body, at: o.at, route: routeOf(r) });
+    const days = r.repeat === 'once' ? Math.min(400, Math.max(WINDOW_DAYS, daysUntil(r.date, now) + 1)) : WINDOW_DAYS;
+    for (const o of occurrences(r, now, days, state.settings.hijriAdjust).filter((x) => !inQuiet(x.at))) timed.push({ title: o.title, body: o.body, at: o.at, route: routeOf(r) });
   }
-  return list.slice(0, MAX_SCHEDULED);
+  // الأقرب زمناً أولاً، والصلاة تتقدّم عند التساوي؛ وصلوات الأسبوع الأول محجوزة فلا يُسقطها الحدّ
+  timed.sort((a, b) => a.at - b.at || (b.prayer ? 1 : 0) - (a.prayer ? 1 : 0));
+  const room = MAX_SCHEDULED - list.length;
+  const weekEnd = now.getTime() + 7 * 86400000;
+  const reserved = timed.filter((x) => x.prayer && x.at.getTime() < weekEnd);
+  const picked = new Set(reserved.slice(0, room));
+  for (const x of timed) { if (picked.size >= room) break; picked.add(x); }
+  let rid = 1000;
+  for (const x of timed) {
+    if (!picked.has(x)) continue;
+    const { prayer, ...item } = x;
+    list.push(prayer ? item : { ...item, id: rid++ });
+  }
+  return list;
 }
 
 /**
@@ -237,11 +261,37 @@ export function buildOverlays(now = new Date()) {
   return out;
 }
 
+// الورد المناسب بعد كل صلاة: الصباح حتى العصر، والمساء حتى العشاء، ثم النوم
+const WIRD_AFTER = { fajr: ['morning', 'أذكار الصباح'], dhuhr: ['morning', 'أذكار الصباح'], asr: ['evening', 'أذكار المساء'], maghrib: ['evening', 'أذكار المساء'], isha: ['sleep', 'أذكار النوم'] };
+
+/** بيانات الويدجت: مواقيت الصلوات الخمس لنحو شهر (من آخر صلاة مضت) بلا أي وقت غير متاح */
+export function widgetData(now = new Date(), days = WINDOW_DAYS) {
+  const loc = location();
+  const items = [];
+  let g = addDays(localToday(now), -1);
+  for (let d = 0; d <= days; d++) {
+    const t = timesFor(g);
+    for (const k of FIVE) {
+      if (!t[k]) continue;
+      const [wird, wirdLabel] = WIRD_AFTER[k];
+      items.push({ k, name: PRAYERS.find((p) => p.key === k).name, at: t[k].getTime(), wird, wirdLabel });
+    }
+    g = addDays(g, 1);
+  }
+  items.sort((a, b) => a.at - b.at);
+  // آخر صلاة مضت تكفي لتحديد الورد الحالي؛ ما قبلها لا حاجة له
+  const firstFuture = items.findIndex((x) => x.at > now.getTime());
+  const from = firstFuture > 0 ? firstFuture - 1 : 0;
+  return { city: loc.name || '', tz: loc.tz || '', arab: state.settings.digits !== 'latn', items: items.slice(from) };
+}
+
 async function doReschedule() {
+  updateWidget(widgetData()).catch(() => {});
   if (overlaySupported) {
     const q = state.settings.quiet;
-    await scheduleOverlays(buildOverlays(), { snooze: state.settings.snooze, quiet: { on: q.on, from: toMin(q.from), to: toMin(q.to) }, digits: state.settings.digits });
+    await scheduleOverlays(buildOverlays(), { snooze: state.settings.snooze, quiet: { on: q.on, from: toMin(q.from), to: toMin(q.to) }, digits: state.settings.digits, enabled: !!state.settings.overlay });
   }
-  if (!notificationsSupported) return;
-  try { await scheduleAll(buildNotifications()); } catch (e) { /* تجاهل أخطاء الجدولة */ }
+  if (!notificationsSupported) { scheduleStatus = { ok: true, count: 0 }; return scheduleStatus; }
+  try { scheduleStatus = await scheduleAll(buildNotifications()); } catch (e) { scheduleStatus = { ok: false, count: 0, error: 'schedule-failed' }; }
+  return scheduleStatus;
 }

@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SakinaUpdaterPlugin.class);
         registerPlugin(SakinaGalleryPlugin.class);
         registerPlugin(SakinaPrintPlugin.class);
+        registerPlugin(SakinaWidgetPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

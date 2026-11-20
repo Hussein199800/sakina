@@ -74,6 +74,7 @@ function count(root) {
   save();
   tapFeedback(kind);
   const b = root.querySelector('[data-tb-tap]');
+  b.setAttribute('aria-label', `سبّح، العدد الحالي ${tb.count}`);
   b.innerHTML = bead();
   b.classList.remove('pulse');
   void b.offsetWidth;

@@ -24,11 +24,19 @@ export async function openOverlaySettings() { if (overlaySupported) await Overla
 /** @param {Array<{id:number, at:Date, title:string, body:string, route:string}>} items */
 export async function scheduleOverlays(items, config = {}) {
   if (!overlaySupported) return;
-  try { await Overlay.schedule({ items: items.map((i) => ({ ...i, at: i.at.getTime() })), snooze: config.snooze, quiet: config.quiet, digits: config.digits }); } catch (e) { /* غير متاح */ }
+  try { await Overlay.schedule({ items: items.map((i) => ({ ...i, at: i.at.getTime() })), snooze: config.snooze, quiet: config.quiet, digits: config.digits, enabled: config.enabled !== false }); } catch (e) { /* غير متاح */ }
 }
 export async function showOverlayNow(title, body, route) {
   if (!overlaySupported) return false;
   try { await Overlay.showNow({ title, body, route }); return true; } catch (e) { return false; }
+}
+
+// ---------- ويدجت الشاشة الرئيسية (أندرويد) ----------
+const Widget = registerPlugin('SakinaWidget');
+/** يرسل مواقيت الويدجت؛ لا يفشل التطبيق إن لم تتوفر الإضافة */
+export async function updateWidget(data) {
+  if (!isAndroid) return false;
+  try { await Widget.update(data); return true; } catch (e) { return false; }
 }
 
 // ---------- التحديث من داخل التطبيق (أندرويد) ----------
@@ -48,12 +56,23 @@ export async function downloadAndInstall(url, onProgress) {
 }
 
 /** روابط sakina://open/... من الفقاعة: تُحوَّل إلى مسار داخل التطبيق */
+/**
+ * يحوّل رابط sakina://open/... إلى مسار داخلي آمن، أو null.
+ * يُقبل المضيف open فقط، ومسار من حروف وأرقام وفواصل محدودة.
+ */
+export function deepLinkRoute(url) {
+  const m = /^sakina:\/\/open(\/[A-Za-z0-9_:/-]{0,80})?\/?(?:[?#].*)?$/.exec(String(url || ''));
+  if (!m) return null;
+  return safeRoute(`#${m[1] || '/home'}`);
+}
+/** مسار تطبيق داخلي صالح (#/name أو #/name/param) أو null */
+export function safeRoute(route) {
+  return /^#\/[a-z]{2,20}(\/[A-Za-z0-9_:-]{1,64})?$/.test(String(route || '')) ? route : null;
+}
+
 export function onDeepLink(cb) {
   if (!isNative) return;
-  const handle = (url) => {
-    const m = /^sakina:\/\/open(\/[^?#]*)?/.exec(url || '');
-    if (m) cb(`#${m[1] || '/home'}`);
-  };
+  const handle = (url) => { const r = deepLinkRoute(url); if (r) cb(r); };
   App.addListener('appUrlOpen', (e) => handle(e && e.url));
   App.getLaunchUrl().then((r) => handle(r && r.url)).catch(() => {});
 }
@@ -69,27 +88,33 @@ export async function copyText(text) {
     await navigator.clipboard.writeText(text);
     return true;
   } catch (e) {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    ta.remove();
-    return ok;
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return !!ok;
+    } catch (e2) { return false; }
   }
 }
 
+/** إلغاء المستخدم لنافذة المشاركة ليس فشلاً */
+export const isShareCancel = (e) => /cancel|abort/i.test(`${(e && e.name) || ''} ${(e && e.message) || ''}`);
+
+/** @returns {Promise<'shared'|'copied'|'cancelled'|'failed'>} */
 export async function shareText(text, title = 'سكينة') {
   try {
-    if (isNative) { await Share.share({ title, text, dialogTitle: 'مشاركة' }); return true; }
-    if (navigator.share) { await navigator.share({ title, text }); return true; }
+    if (isNative) { await Share.share({ title, text, dialogTitle: 'مشاركة' }); return 'shared'; }
+    if (navigator.share) { await navigator.share({ title, text }); return 'shared'; }
   } catch (e) {
-    return false;
+    return isShareCancel(e) ? 'cancelled' : 'failed';
   }
-  return copyText(text).then(() => 'copied');
+  return (await copyText(text)) ? 'copied' : 'failed';
 }
 
 const Printer = registerPlugin('SakinaPrint');
@@ -130,15 +155,17 @@ export async function saveImageToGallery(dataUrl, name = 'sakina.png') {
 /** مشاركة صورة PNG (dataURL) */
 export async function shareImage(dataUrl, name = 'sakina.png') {
   if (isNative) {
-    const { uri } = await Filesystem.writeFile({ path: name, data: dataUrl.split(',')[1], directory: Directory.Cache });
-    await Share.share({ title: 'سكينة', files: [uri], dialogTitle: 'مشاركة البطاقة' });
-    return true;
+    try {
+      const { uri } = await Filesystem.writeFile({ path: `share/${name}`, data: dataUrl.split(',')[1], directory: Directory.Cache, recursive: true });
+      await Share.share({ title: 'سكينة', files: [uri], dialogTitle: 'مشاركة البطاقة' });
+      return 'shared';
+    } catch (e) { return isShareCancel(e) ? 'cancelled' : 'failed'; }
   }
   try {
     const blob = await (await fetch(dataUrl)).blob();
     const file = new File([blob], name, { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'سكينة' }); return true; }
-  } catch (e) { /* ننزّل الصورة بدلاً من ذلك */ }
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'سكينة' }); return 'shared'; }
+  } catch (e) { if (isShareCancel(e)) return 'cancelled'; /* وإلا ننزّل الصورة */ }
   const a = document.createElement('a');
   a.href = dataUrl;
   a.download = name;
@@ -147,24 +174,46 @@ export async function shareImage(dataUrl, name = 'sakina.png') {
 }
 
 /** حفظ ملف نصي (تصدير البيانات) */
+/** @returns {Promise<'shared'|'downloaded'|'cancelled'|'failed'>} */
 export async function saveTextFile(name, text) {
   if (isNative) {
-    const { uri } = await Filesystem.writeFile({ path: name, data: text, directory: Directory.Cache, encoding: 'utf8' });
-    await Share.share({ title: name, files: [uri], dialogTitle: 'حفظ نسخة البيانات' });
-    return;
+    try {
+      const { uri } = await Filesystem.writeFile({ path: `share/${name}`, data: text, directory: Directory.Cache, encoding: 'utf8', recursive: true });
+      await Share.share({ title: name, files: [uri], dialogTitle: 'حفظ نسخة البيانات' });
+      return 'shared';
+    } catch (e) { return isShareCancel(e) ? 'cancelled' : 'failed'; }
   }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    return 'downloaded';
+  } catch (e) { return 'failed'; }
 }
 
-export async function getPosition() {
+/** حذف ملفات المشاركة المؤقتة الأقدم من يوم (قد تحوي نسخة احتياطية) */
+export async function cleanShareCache(maxAgeMs = 86400000) {
+  if (!isNative) return;
+  try {
+    const { files } = await Filesystem.readdir({ path: 'share', directory: Directory.Cache });
+    const now = Date.now();
+    for (const f of files || []) {
+      const name = typeof f === 'string' ? f : f.name;
+      const mtime = typeof f === 'object' && f.mtime ? +f.mtime : 0;
+      if (name && (!mtime || now - mtime > maxAgeMs)) await Filesystem.deleteFile({ path: `share/${name}`, directory: Directory.Cache }).catch(() => {});
+    }
+  } catch (e) { /* لا مجلد بعد */ }
+}
+
+/** الموقع الحالي؛ opts تغيّر المهلة والعمر الأقصى لمستدعٍ بعينه دون مساس بالافتراضي */
+export async function getPosition(opts = {}) {
+  const o = { enableHighAccuracy: false, timeout: opts.timeout || 15000, maximumAge: opts.maximumAge != null ? opts.maximumAge : 600000 };
   if (isNative) {
     const perm = await Geolocation.requestPermissions({ permissions: ['coarseLocation'] }).catch(() => null);
     if (perm && perm.coarseLocation === 'denied' && perm.location === 'denied') throw new Error('denied');
-    const p = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+    const p = await Geolocation.getCurrentPosition(o);
     return { lat: p.coords.latitude, lng: p.coords.longitude };
   }
   return new Promise((resolve, reject) => {
@@ -172,7 +221,7 @@ export async function getPosition() {
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
       reject,
-      { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 },
+      o,
     );
   });
 }
@@ -190,9 +239,11 @@ export const notificationsSupported = isNative;
 
 export async function ensureNotifyPermission() {
   if (!isNative) return false;
-  let p = await LocalNotifications.checkPermissions();
-  if (p.display !== 'granted') p = await LocalNotifications.requestPermissions();
-  return p.display === 'granted';
+  try {
+    let p = await LocalNotifications.checkPermissions();
+    if (p.display !== 'granted') p = await LocalNotifications.requestPermissions();
+    return p.display === 'granted';
+  } catch (e) { return false; }
 }
 
 /** عند الضغط على الإشعار: الانتقال إلى الصفحة المناسبة */
@@ -200,7 +251,7 @@ export function onNotificationTap(cb) {
   if (!isNative) return;
   LocalNotifications.addListener('localNotificationActionPerformed', (e) => {
     const route = e && e.notification && e.notification.extra && e.notification.extra.route;
-    if (route) cb(route);
+    if (safeRoute(route)) cb(route);
   });
 }
 
@@ -222,9 +273,19 @@ export async function openExactAlarmSettings() {
 /**
  * يعيد جدولة كل التنبيهات من الصفر.
  * @param {Array<{id:number,title:string,body:string,at?:Date,daily?:{hour:number,minute:number},weekly?:{weekday:number,hour:number,minute:number}}>} list
+ * @returns {Promise<{ok:boolean, count:number, error?:string}>} حالة الجدولة الفعلية
  */
 export async function scheduleAll(list) {
-  if (!isNative) return;
+  if (!isNative) return { ok: true, count: 0 };
+  try {
+    await scheduleAllRaw(list);
+    return { ok: true, count: list.length };
+  } catch (e) {
+    return { ok: false, count: 0, error: (e && e.message) || 'schedule-failed' };
+  }
+}
+
+async function scheduleAllRaw(list) {
   const pending = await LocalNotifications.getPending();
   if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
   if (!list.length) return;

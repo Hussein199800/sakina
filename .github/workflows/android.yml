@@ -6,11 +6,30 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  apk:
+  # الاختبارات أولاً: وحدات + واجهة (Playwright) دون أي وصول لأسرار التوقيع
+  test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: اختبارات الوحدة
+        run: npm test
+      - name: تثبيت متصفح الاختبار
+        run: npx playwright install --with-deps chromium
+      - name: اختبارات الواجهة (الشاشات، الأرقام والعرض، التكبير)
+        run: npm run build && node tests/e2e/run.cjs && node tests/e2e/audit.cjs && node tests/e2e/zoom.cjs
+
+  apk:
+    needs: test
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -22,8 +41,6 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
-      - name: اختبارات الوحدة (المواقيت، القبلة، الهجري، المحتوى)
-        run: npm test
       - run: npm run build && npx cap sync android
 
       # نسخة موقّعة للنشر: تعمل فقط إذا أُضيف مفتاح التوقيع في أسرار المستودع
@@ -57,20 +74,29 @@ jobs:
           SAKINA_KEYSTORE: ${{ steps.sign.outputs.path }}
           SAKINA_KEYSTORE_PASSWORD: ${{ secrets.SAKINA_KEYSTORE_PASSWORD }}
           SAKINA_KEY_ALIAS: sakina
-        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon && mv app/build/outputs/apk/release/app-release.apk ../sakina.apk
+        run: chmod +x gradlew && ./gradlew testDebugUnitTest assembleRelease --no-daemon && mv app/build/outputs/apk/release/app-release.apk ../sakina.apk
       - name: Build debug APK (no signing key)
         if: steps.sign.outputs.path == ''
         working-directory: android
-        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon && mv app/build/outputs/apk/debug/app-debug.apk ../sakina-debug.apk
+        run: chmod +x gradlew && ./gradlew testDebugUnitTest assembleDebug --no-daemon && mv app/build/outputs/apk/debug/app-debug.apk ../sakina-debug.apk
 
       - uses: actions/upload-artifact@v5
         with:
           name: sakina-apk
           path: sakina*.apk
 
-      # عند رفع وسم إصدار (مثل v1.1.0) يُنشأ إصدار على GitHub ويُرفق به ملف التثبيت
+  # عند رفع وسم إصدار (مثل v1.1.0) يُنشأ إصدار على GitHub ويُرفق به ملف التثبيت؛ صلاحية الكتابة هنا فقط
+  release:
+    needs: apk
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: sakina-apk
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: sakina*.apk

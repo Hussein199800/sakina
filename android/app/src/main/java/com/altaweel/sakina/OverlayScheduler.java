@@ -24,6 +24,7 @@ public final class OverlayScheduler {
     static final String KEY_SNOOZE = "snooze";
     static final String KEY_QUIET = "quiet";
     static final String KEY_ARAB = "arab";
+    static final String KEY_ENABLED = "enabled";
     /** معرّف ثابت للتأجيل: تأجيل جديد يستبدل السابق فلا تتكرر الفقاعة */
     static final int SNOOZE_ID = 6999;
 
@@ -87,8 +88,23 @@ public final class OverlayScheduler {
         }
     }
 
+    /** تفعيل الفقاعة أو إيقافها؛ الإيقاف يلغي التأجيل المعلّق ويخفي الفقاعة الظاهرة */
+    public static void setEnabled(Context ctx, boolean on) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, on).apply();
+        if (!on) {
+            AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+            if (am != null) am.cancel(intent(ctx, SNOOZE_ID, "", "", ""));
+            BubbleView.hide(ctx);
+        }
+    }
+
+    static boolean enabled(Context ctx) {
+        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, true);
+    }
+
     /** إعادة إظهار التذكير نفسه بعد مدة يختارها المستخدم */
     public static void snooze(Context ctx, int minutes, String title, String body, String route) {
+        if (!enabled(ctx)) return;
         set(ctx, SNOOZE_ID, System.currentTimeMillis() + minutes * 60_000L, title, body, route);
     }
 
@@ -111,8 +127,13 @@ public final class OverlayScheduler {
         if (am == null) return;
         PendingIntent pi = intent(ctx, id, title, body, route);
         boolean exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms();
-        if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
-        else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+        try {
+            if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+        } catch (SecurityException e) {
+            // سُحب إذن المنبّه الدقيق بين الفحص والجدولة: موعد غير دقيق بدل الانهيار
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+        }
     }
 
     private static void cancelAll(Context ctx, String idsJson) {

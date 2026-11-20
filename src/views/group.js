@@ -110,6 +110,7 @@ export const actions = {
     if (!g) return;
     const r = await shareText(shareMessage(g), g.name);
     if (r === 'copied') toast('تم نسخ التوزيع لمشاركته');
+    if (r === 'failed') toast('تعذّرت المشاركة، حاول مرة أخرى', 'info');
   },
   'g-del': async (el) => {
     const g = find(el.dataset.g);

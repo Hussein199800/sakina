@@ -431,5 +431,7 @@ export const CATEGORIES = [
 
 CATEGORIES.forEach((c) => c.items.forEach((it, i) => { it.id = `${c.id}-${i}`; it.cat = c.id; }));
 
-export const CATEGORY_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
-export const ITEM_BY_ID = Object.fromEntries(CATEGORIES.flatMap((c) => c.items.map((it) => [it.id, it])));
+// بلا Object.fromEntries/flatMap: غير متاحين في WebView أندرويد القديم (Chrome 61)
+export const CATEGORY_BY_ID = {};
+export const ITEM_BY_ID = {};
+CATEGORIES.forEach((c) => { CATEGORY_BY_ID[c.id] = c; c.items.forEach((it) => { ITEM_BY_ID[it.id] = it; }); });

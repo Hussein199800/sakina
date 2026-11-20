@@ -6,7 +6,7 @@ import { computeZakat, KARATS, NISAB_GOLD_G, NISAB_SILVER_G, CURRENCIES, price24
 import { fullHead, refresh } from './common.js';
 import { openSheet, toast, confirmSheet } from '../ui.js';
 import { isoDay } from './pickers.js';
-import { book, KINDS, TYPES, STATUS, statusOf, delivered, remaining, totals, allocatedFor, filterPeople, addDelivery, uid } from '../zakatlog.js';
+import { book, KINDS, TYPES, STATUS, statusOf, delivered, remaining, totals, allocatedFor, filterPeople, addDelivery, uid, personError } from '../zakatlog.js';
 import { printHtml } from '../native.js';
 
 export const full = true;
@@ -85,7 +85,7 @@ function show(root) {
   const cur = z.currency ? ` ${esc(z.currency)}` : '';
   const money = (v) => `${fmtNum(v, 2)}${cur}`;
   root.querySelector('[data-z-result]').innerHTML = r.missingPrice
-    ? `<p class="center muted">${icon('info')} أدخل سعر غرام ${z.basis === 'gold' ? 'الذهب' : 'الفضة'} لحساب النصاب.</p>`
+    ? `<p class="center muted">${icon('info')} أدخل سعر غرام ${r.missing.map((m) => (m === 'gold' ? 'الذهب' : 'الفضة')).join(' و')} ${r.missing.indexOf(z.basis) !== -1 ? 'لحساب النصاب' : 'لحساب قيمة ما تملكه منه'}.</p>`
     : `<div class="z-due ${r.reached ? 'yes' : ''}">
         <small>${r.reached ? 'الزكاة الواجبة' : 'لم يبلغ مالك النصاب'}</small>
         <b>${r.reached ? money(r.due) : '—'}</b>
@@ -212,6 +212,8 @@ function personSheet(existing) {
         if (!name) { toast('اكتب الاسم أولاً', 'info'); return; }
         if (!(Number.isFinite(amount) && amount >= 0)) { toast('المبلغ غير صحيح', 'info'); return; }
         const patch = { name, kind, type, group, amount: Math.round(amount * 100) / 100, currency: val('currency'), phone: val('phone'), note: val('note'), dueDate: val('dueDate'), saveId: type === 'zakat' ? val('saveId') : '' };
+        const err = personError(existing, patch, b.saves);
+        if (err) { toast(err, 'info'); return; }
         if (existing) Object.assign(existing, patch); else b.people.push({ id: uid('zp'), deliveries: [], ...patch });
         save();
         close();
@@ -284,7 +286,7 @@ export function reportHtml(people, saves, { phone = false, notes = false } = {})
   const m = (v, c) => `${fmtNum(v, 2)}${c ? ` ${e(c)}` : ''}`;
   const rows = people.map((p, i) => `<tr><td>${num(i + 1)}</td><td>${e(p.name)}</td><td>${KINDS[p.kind]}</td><td>${e(p.group)}</td><td>${TYPES[p.type]}</td><td>${m(p.amount, p.currency)}</td><td>${m(delivered(p), p.currency)}</td><td>${m(remaining(p), p.currency)}</td><td>${STATUS[statusOf(p)]}</td>${phone ? `<td dir="ltr">${e(p.phone)}</td>` : ''}${notes ? `<td>${e(p.note)}</td>` : ''}</tr>`).join('');
   const t = totals(people).map((x) => `<li>${TYPES[x.type]}${x.currency ? ` (${e(x.currency)})` : ''}: مخصّص ${m(x.allocated, x.currency)}، مُسلَّم ${m(x.delivered, x.currency)}، متبقٍّ ${m(x.remaining, x.currency)}</li>`).join('');
-  const sv = saves.map((x) => `<li>${e(x.label)}: الزكاة الواجبة ${m(x.due, x.currency)}، خُصّص منها ${m(allocatedFor(x.id, people), x.currency)}</li>`).join('');
+  const sv = saves.map((x) => `<li>${e(x.label)}: الزكاة الواجبة ${m(x.due, x.currency)}، خُصّص منها ${m(allocatedFor(x.id, people, saves), x.currency)}</li>`).join('');
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>سجل الزكاة والصدقات</title>
 <style>body{font-family:'IBM Plex Sans Arabic',Tahoma,sans-serif;color:#18241E;margin:24px;font-size:12px}h1{font-size:20px;color:#1F5E43;margin:0 0 4px}p{margin:0 0 12px;color:#555}
 table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #cfd8d3;padding:6px 8px;text-align:right;vertical-align:top}th{background:#eef4f0}ul{padding-right:18px}
@@ -300,7 +302,7 @@ export const actions = {
   'z-save': async () => {
     const z = data();
     const r = computeZakat({ ...z, goldPrice: price24(z.goldPrice, z.goldKarat || 24) });
-    if (r.missingPrice) { toast('أدخل سعر النصاب أولاً', 'info'); return; }
+    if (r.missingPrice) { toast('أدخل سعر كل معدن تملكه وسعر النصاب أولاً', 'info'); return; }
     const today = isoDay(new Date());
     book().saves.unshift({ id: uid('zs'), at: new Date().toISOString(), label: `حساب ${num(today.split('-').reverse().join('/'))}`, currency: z.currency || '', basis: z.basis, net: r.net, nisab: r.nisab, due: r.due, reached: r.reached, priceDate: z.priceDate || '' });
     save();
